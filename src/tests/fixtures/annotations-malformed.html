@@ -1,0 +1,13 @@
+<!--
+  Simulates Amazon having redesigned the annotations page: the expected
+  container is missing entirely. parseAnnotations() must throw a
+  KindleParseError here, not silently return an empty list.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <body>
+    <div id="totally-different-app">
+      <p>Amazon has redesigned this page.</p>
+    </div>
+  </body>
+</html>
