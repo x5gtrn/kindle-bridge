@@ -60,7 +60,14 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         show: false,
         webPreferences: { partition: SESSION_PARTITION },
       });
-      keepNavigationEmbedded(win);
+      keepNavigationEmbedded(win, (url) => {
+        this.logger.debug(
+          "Amazon login navigation kept embedded (would otherwise have escaped the window)",
+          {
+            origin: safeUrlOrigin(url),
+          },
+        );
+      });
 
       let settled = false;
 

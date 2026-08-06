@@ -28,6 +28,10 @@ export interface ElectronWindowOpenHandlerResponse {
   action: "deny" | "allow";
 }
 
+export interface ElectronNavigationEvent {
+  preventDefault(): void;
+}
+
 export interface ElectronWebContents {
   getURL(): string;
   executeJavaScript<T = unknown>(code: string): Promise<T>;
@@ -45,6 +49,14 @@ export interface ElectronWebContents {
     event: "did-fail-load",
     listener: (event: unknown, errorCode: number, errorDescription: string) => void,
   ): void;
+  /** Fires for page/renderer-initiated top-level navigation (e.g. a
+   * link click or form submit) - as opposed to did-navigate, which
+   * fires after such a navigation has already happened. Calling
+   * preventDefault() here stops the navigation from proceeding at all
+   * (in this webContents or anywhere else), which is what makes it
+   * possible to redirect it back into the same window ourselves - see
+   * keepNavigationEmbedded(). */
+  on(event: "will-navigate", listener: (event: ElectronNavigationEvent, url: string) => void): void;
   /** See keepNavigationEmbedded() below - the reason this plugin sets
    * this handler at all. */
   setWindowOpenHandler(
@@ -97,33 +109,46 @@ export function getElectronRemote(): ElectronRemote | undefined {
 }
 
 /**
- * Forces any "new window" navigation triggered from inside `win` (e.g.
- * a `target="_blank"` link, or `window.open()` - both common in login/
- * MFA flows) to load in `win` itself instead of escaping elsewhere.
+ * Forces navigation triggered from inside `win` - both "new window"
+ * requests (e.g. a `target="_blank"` link, or `window.open()`) and
+ * top-level page navigation (e.g. a plain link click or form submit,
+ * observed via `will-navigate`) - to load in `win` itself instead of
+ * escaping elsewhere.
  *
- * Without this, a new-window request left unhandled can be routed to
- * the OS's default system browser by an app-level policy outside this
- * plugin's control (Obsidian's own webContents configuration applies
- * process-wide, not just to Obsidian's main window) - stranding the
- * user mid-login with no way back into the plugin's window except
+ * Without this, either kind of navigation can be routed to the OS's
+ * default system browser by an app-level policy outside this plugin's
+ * control (Obsidian's own webContents configuration applies process-
+ * wide, not just to Obsidian's main window) - stranding the user
+ * mid-login with no way back into the plugin's window except
  * cancelling. This is exactly the failure mode documented in
  * docs/risks.md R-05 (also seen in the reference project's issue #337
  * during Phase 0 research): Amazon's sign-in flow can trigger a
- * new-window navigation partway through, and if it escapes, this
+ * navigation partway through that escapes, and if it does, this
  * plugin has no visibility into whatever completes in that separate
  * browser - it isn't the same session partition, so even a successful
  * sign-in there doesn't help.
  *
  * Keeping the navigation inside `win` doesn't bypass any Amazon
  * security measure or fake anything - it's the standard Electron
- * mechanism for "this popup should stay embedded in my own window,"
- * and Amazon's own page still renders and behaves identically, just
- * inside our window instead of a new one.
+ * mechanism for "this stays embedded in my own window," and Amazon's
+ * own page still renders and behaves identically, just inside our
+ * window instead of escaping it. `onIntercepted`, if given, is called
+ * with the target URL every time either path is intercepted, purely
+ * for optional caller-side debug logging.
  */
-export function keepNavigationEmbedded(win: ElectronBrowserWindow): void {
+export function keepNavigationEmbedded(
+  win: ElectronBrowserWindow,
+  onIntercepted?: (url: string) => void,
+): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
+    onIntercepted?.(url);
     win.loadURL(url).catch(() => undefined);
     return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (event, url) => {
+    onIntercepted?.(url);
+    event.preventDefault();
+    win.loadURL(url).catch(() => undefined);
   });
 }
 

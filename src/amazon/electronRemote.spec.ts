@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   ElectronBrowserWindow,
+  ElectronNavigationEvent,
   ElectronWindowOpenHandlerDetails,
   ElectronWindowOpenHandlerResponse,
 } from "./electronRemote";
@@ -8,16 +9,15 @@ import { getElectronRemote, keepNavigationEmbedded, safeUrlOrigin } from "./elec
 
 function fakeBrowserWindow(): ElectronBrowserWindow & {
   loadURL: ReturnType<typeof vi.fn>;
-  capturedHandler?: (
-    details: ElectronWindowOpenHandlerDetails,
-  ) => ElectronWindowOpenHandlerResponse;
+  triggerNewWindow: (url: string) => ElectronWindowOpenHandlerResponse | undefined;
+  /** Returns whether the will-navigate listener called preventDefault(). */
+  triggerWillNavigate: (url: string) => boolean;
 } {
-  const win: ElectronBrowserWindow & {
-    loadURL: ReturnType<typeof vi.fn>;
-    capturedHandler?: (
-      details: ElectronWindowOpenHandlerDetails,
-    ) => ElectronWindowOpenHandlerResponse;
-  } = {
+  let openHandler:
+    ((details: ElectronWindowOpenHandlerDetails) => ElectronWindowOpenHandlerResponse) | undefined;
+  let willNavigateListener: ((event: ElectronNavigationEvent, url: string) => void) | undefined;
+
+  const win: ElectronBrowserWindow & { loadURL: ReturnType<typeof vi.fn> } = {
     loadURL: vi.fn().mockResolvedValue(undefined),
     show: () => undefined,
     close: () => undefined,
@@ -28,13 +28,25 @@ function fakeBrowserWindow(): ElectronBrowserWindow & {
       getURL: () => "",
       executeJavaScript: <T>() => Promise.resolve(undefined as T),
       session: { clearStorageData: () => Promise.resolve() },
-      on: () => undefined,
+      on: (event: string, listener: unknown) => {
+        if (event === "will-navigate") {
+          willNavigateListener = listener as typeof willNavigateListener;
+        }
+      },
       setWindowOpenHandler: (handler) => {
-        win.capturedHandler = handler;
+        openHandler = handler;
       },
     },
   };
-  return win;
+
+  return Object.assign(win, {
+    triggerNewWindow: (url: string) => openHandler?.({ url }),
+    triggerWillNavigate: (url: string) => {
+      let prevented = false;
+      willNavigateListener?.({ preventDefault: () => (prevented = true) }, url);
+      return prevented;
+    },
+  });
 }
 
 describe("getElectronRemote", () => {
@@ -56,21 +68,47 @@ describe("safeUrlOrigin", () => {
 });
 
 describe("keepNavigationEmbedded", () => {
-  it("registers a window-open handler that denies the new window", () => {
-    const win = fakeBrowserWindow();
-    keepNavigationEmbedded(win);
+  describe("new-window requests (window.open()/target=_blank)", () => {
+    it("denies the new window and loads the URL in the same window instead", () => {
+      const win = fakeBrowserWindow();
+      keepNavigationEmbedded(win);
 
-    expect(win.capturedHandler).toBeDefined();
-    const response = win.capturedHandler?.({ url: "https://www.amazon.co.jp/ap/signin" });
-    expect(response).toEqual({ action: "deny" });
+      const response = win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
+
+      expect(response).toEqual({ action: "deny" });
+      expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+    });
+
+    it("calls onIntercepted with the target URL", () => {
+      const win = fakeBrowserWindow();
+      const onIntercepted = vi.fn();
+      keepNavigationEmbedded(win, onIntercepted);
+
+      win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
+
+      expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+    });
   });
 
-  it("loads the target URL in the same window instead of letting it open elsewhere", () => {
-    const win = fakeBrowserWindow();
-    keepNavigationEmbedded(win);
+  describe("top-level page navigation (will-navigate)", () => {
+    it("prevents the default navigation and loads the URL in the same window instead", () => {
+      const win = fakeBrowserWindow();
+      keepNavigationEmbedded(win);
 
-    win.capturedHandler?.({ url: "https://www.amazon.co.jp/ap/signin" });
+      const prevented = win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
 
-    expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+      expect(prevented).toBe(true);
+      expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+    });
+
+    it("calls onIntercepted with the target URL", () => {
+      const win = fakeBrowserWindow();
+      const onIntercepted = vi.fn();
+      keepNavigationEmbedded(win, onIntercepted);
+
+      win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
+
+      expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+    });
   });
 });
