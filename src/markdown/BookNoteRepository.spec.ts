@@ -1,0 +1,259 @@
+import type { FileManager, MetadataCache, TFile, Vault } from "obsidian";
+import { beforeEach, describe, expect, it } from "vitest";
+import type { KindleAnnotation } from "../models/KindleAnnotation";
+import type { KindleBook } from "../models/KindleBook";
+import {
+  BookNoteRepository,
+  GeneratedBlockMissingError,
+  VaultFolderCreationError,
+} from "./BookNoteRepository";
+import { GENERATED_BLOCK_END, GENERATED_BLOCK_START } from "./BookNoteRenderer";
+
+interface FakeNode {
+  path: string;
+  content: string;
+  frontmatter: Record<string, unknown>;
+}
+
+class FakeVault {
+  files = new Map<string, FakeNode>();
+  folders = new Set<string>();
+
+  getName(): string {
+    return "TestVault";
+  }
+
+  getMarkdownFiles(): TFile[] {
+    return [...this.files.values()].map((f) => ({ path: f.path }) as TFile);
+  }
+
+  getAbstractFileByPath(path: string) {
+    if (this.folders.has(path)) {
+      return { path, children: [] };
+    }
+    const file = this.files.get(path);
+    return file ? { path: file.path, children: undefined } : null;
+  }
+
+  create(path: string, data: string): Promise<TFile> {
+    if (this.files.has(path) || this.folders.has(path)) {
+      return Promise.reject(new Error(`already exists: ${path}`));
+    }
+    this.files.set(path, { path, content: data, frontmatter: {} });
+    return Promise.resolve({ path } as TFile);
+  }
+
+  process(file: TFile, fn: (data: string) => string): Promise<string> {
+    const existing = this.files.get(file.path);
+    if (!existing) {
+      return Promise.reject(new Error(`not found: ${file.path}`));
+    }
+    existing.content = fn(existing.content);
+    return Promise.resolve(existing.content);
+  }
+
+  createFolder(path: string): Promise<unknown> {
+    this.folders.add(path);
+    return Promise.resolve({ path, children: [] });
+  }
+}
+
+class FakeMetadataCache {
+  constructor(private readonly vault: FakeVault) {}
+
+  getFileCache(file: TFile) {
+    const existing = this.vault.files.get(file.path);
+    if (!existing) {
+      return null;
+    }
+    return { frontmatter: existing.frontmatter };
+  }
+}
+
+class FakeFileManager {
+  constructor(private readonly vault: FakeVault) {}
+
+  processFrontMatter(file: TFile, fn: (fm: Record<string, unknown>) => void): Promise<void> {
+    const existing = this.vault.files.get(file.path);
+    if (!existing) {
+      return Promise.reject(new Error(`not found: ${file.path}`));
+    }
+    fn(existing.frontmatter);
+    return Promise.resolve();
+  }
+}
+
+const book: KindleBook = {
+  id: "B012345678",
+  asin: "B012345678",
+  title: "Book Title",
+  authors: ["Author Name"],
+  amazonUrl: "https://www.amazon.co.jp/dp/B012345678",
+  region: "jp",
+};
+
+const annotation: KindleAnnotation = {
+  id: "annotation-1",
+  bookId: book.id,
+  type: "highlight",
+  text: "Highlight text",
+  sourceUrl: "https://example.com/",
+  contentHash: "hash-1",
+};
+
+const renderOptions = { displayCoverImage: true, syncedAt: "2026-08-06T18:00:00+09:00" };
+const OUTPUT_FOLDER = "Highlight and Memo/Books";
+
+function buildRepository(vault: FakeVault) {
+  return new BookNoteRepository(
+    vault as unknown as Vault,
+    new FakeMetadataCache(vault) as unknown as MetadataCache,
+    new FakeFileManager(vault) as unknown as FileManager,
+    OUTPUT_FOLDER,
+  );
+}
+
+describe("BookNoteRepository", () => {
+  let vault: FakeVault;
+
+  beforeEach(() => {
+    vault = new FakeVault();
+  });
+
+  it("creates the output folder (including nested segments) if missing", async () => {
+    const repo = buildRepository(vault);
+    await repo.upsert(book, [annotation], renderOptions);
+    expect(vault.folders.has("Highlight and Memo")).toBe(true);
+    expect(vault.folders.has("Highlight and Memo/Books")).toBe(true);
+  });
+
+  it("does not fail when the output folder already exists", async () => {
+    vault.folders.add("Highlight and Memo");
+    vault.folders.add("Highlight and Memo/Books");
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).resolves.toBe("created");
+  });
+
+  it("throws VaultFolderCreationError when a path segment is a file, not a folder", async () => {
+    vault.files.set("Highlight and Memo", {
+      path: "Highlight and Memo",
+      content: "",
+      frontmatter: {},
+    });
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).rejects.toThrow(
+      VaultFolderCreationError,
+    );
+  });
+
+  it("creates a new note with frontmatter and a generated block", async () => {
+    const repo = buildRepository(vault);
+    const outcome = await repo.upsert(book, [annotation], renderOptions);
+    expect(outcome).toBe("created");
+
+    const file = vault.files.get("Highlight and Memo/Books/Book Title.md");
+    expect(file).toBeDefined();
+    expect(file?.frontmatter.kindle_book_id).toBe(book.id);
+    expect(file?.frontmatter.title).toBe(book.title);
+    expect(file?.content).toContain(GENERATED_BLOCK_START);
+    expect(file?.content).toContain(GENERATED_BLOCK_END);
+    expect(file?.content).toContain("## My Notes");
+  });
+
+  it("disambiguates the file name when an unrelated file already occupies the plain path", async () => {
+    vault.files.set("Highlight and Memo/Books/Book Title.md", {
+      path: "Highlight and Memo/Books/Book Title.md",
+      content: "unrelated note",
+      frontmatter: {},
+    });
+    const repo = buildRepository(vault);
+    await repo.upsert(book, [annotation], renderOptions);
+
+    expect(vault.files.has(`Highlight and Memo/Books/Book Title - ${book.asin}.md`)).toBe(true);
+    expect(vault.files.get("Highlight and Memo/Books/Book Title.md")?.content).toBe(
+      "unrelated note",
+    );
+  });
+
+  it("finds an existing note by frontmatter kindle_book_id, not by file name", async () => {
+    const renamedPath = "Highlight and Memo/Books/Renamed By User.md";
+    vault.files.set(renamedPath, {
+      path: renamedPath,
+      content: `# Renamed\n\n${GENERATED_BLOCK_START}\n\nold content\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
+      frontmatter: { kindle_book_id: book.id },
+    });
+
+    const repo = buildRepository(vault);
+    const outcome = await repo.upsert(book, [annotation], renderOptions);
+
+    expect(outcome).toBe("updated");
+    expect(vault.files.has("Highlight and Memo/Books/Book Title.md")).toBe(false);
+    expect(vault.files.get(renamedPath)?.content).toContain(annotation.text);
+  });
+
+  it("preserves user content outside the generated block on update", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    vault.files.set(path, {
+      path,
+      content: [
+        "# Book Title",
+        "",
+        "Some intro the user wrote.",
+        "",
+        GENERATED_BLOCK_START,
+        "",
+        "stale generated content",
+        "",
+        GENERATED_BLOCK_END,
+        "",
+        "## My Notes",
+        "",
+        "My own thoughts that must survive.",
+      ].join("\n"),
+      frontmatter: { kindle_book_id: book.id, custom_user_field: "keep me" },
+    });
+
+    const repo = buildRepository(vault);
+    await repo.upsert(book, [annotation], renderOptions);
+
+    const updated = vault.files.get(path);
+    expect(updated?.content).toContain("Some intro the user wrote.");
+    expect(updated?.content).toContain("My own thoughts that must survive.");
+    expect(updated?.content).not.toContain("stale generated content");
+    expect(updated?.content).toContain(annotation.text);
+    expect(updated?.frontmatter.custom_user_field).toBe("keep me");
+    expect(updated?.frontmatter.kindle_book_id).toBe(book.id);
+  });
+
+  it("updates only the plugin-owned frontmatter keys, preserving other keys", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    vault.files.set(path, {
+      path,
+      content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\nold\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
+      frontmatter: { kindle_book_id: book.id, title: "Stale Title", my_rating: 5 },
+    });
+
+    const repo = buildRepository(vault);
+    await repo.upsert(book, [annotation], renderOptions);
+
+    const updated = vault.files.get(path);
+    expect(updated?.frontmatter.my_rating).toBe(5);
+    expect(updated?.frontmatter.title).toBe(book.title);
+  });
+
+  it("throws GeneratedBlockMissingError and leaves the file untouched if markers were removed", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    const originalContent = "# Book Title\n\nNo markers here anymore.\n\n## My Notes\n";
+    vault.files.set(path, {
+      path,
+      content: originalContent,
+      frontmatter: { kindle_book_id: book.id },
+    });
+
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).rejects.toThrow(
+      GeneratedBlockMissingError,
+    );
+    expect(vault.files.get(path)?.content).toBe(originalContent);
+  });
+});
