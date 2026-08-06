@@ -49,10 +49,14 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
   constructor(private readonly logger: Logger) {}
 
   signIn(region: AmazonRegion): Promise<AmazonLoginResult> {
+    this.logger.debug("Amazon login: signIn() called", { region: region.id });
+
     const remote = getElectronRemote();
     if (!remote) {
+      this.logger.debug("Amazon login: Electron remote bridge unavailable, aborting");
       throw new AmazonAuthUnsupportedError();
     }
+    this.logger.debug("Amazon login: Electron remote bridge available");
 
     return new Promise<AmazonLoginResult>((resolve) => {
       const win = new remote.BrowserWindow({
@@ -61,6 +65,8 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         show: false,
         webPreferences: { partition: SESSION_PARTITION },
       });
+      this.logger.debug("Amazon login: BrowserWindow created");
+
       keepNavigationEmbedded(win, (url) => {
         this.logger.debug("Amazon login new-window request kept embedded", {
           origin: safeUrlOrigin(url),
@@ -79,6 +85,7 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
           return;
         }
         settled = true;
+        this.logger.debug("Amazon login: finishing", { result });
         clearTimeout(timeoutHandle);
         this.pendingCancel = undefined;
         if (!win.isDestroyed()) {
@@ -91,7 +98,10 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
 
       const timeoutHandle = setTimeout(() => finish("timeout"), LOGIN_TIMEOUT_MS);
 
-      win.once("ready-to-show", () => win.show());
+      win.once("ready-to-show", () => {
+        this.logger.debug("Amazon login: ready-to-show fired, showing window");
+        win.show();
+      });
 
       win.webContents.on("did-navigate", (_event, url) => {
         this.logger.debug("Amazon login navigation", { origin: safeUrlOrigin(url) });
@@ -100,17 +110,32 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         }
       });
       win.webContents.on("did-navigate-in-page", (_event, url) => {
+        this.logger.debug("Amazon login in-page navigation", { origin: safeUrlOrigin(url) });
         if (url.startsWith(region.kindleReaderUrl)) {
           finish("success");
         }
       });
-      win.webContents.on("did-fail-load", (_event, errorCode) => {
-        this.logger.warn("Amazon login navigation failed", { errorCode });
+      win.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+        this.logger.warn("Amazon login navigation failed", { errorCode, errorDescription });
         finish("navigation-error");
       });
-      win.on("closed", () => finish("cancelled"));
+      win.on("closed", () => {
+        this.logger.debug("Amazon login: window closed");
+        finish("cancelled");
+      });
 
-      win.loadURL(region.notebookUrl).catch(() => finish("navigation-error"));
+      this.logger.debug("Amazon login: calling loadURL", {
+        origin: safeUrlOrigin(region.notebookUrl),
+      });
+      win
+        .loadURL(region.notebookUrl)
+        .then(() => this.logger.debug("Amazon login: loadURL promise resolved"))
+        .catch((error: unknown) => {
+          this.logger.warn("Amazon login: loadURL promise rejected", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+          finish("navigation-error");
+        });
     });
   }
 
