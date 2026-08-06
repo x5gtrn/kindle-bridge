@@ -80,10 +80,6 @@ export function getElectronRemote(): ElectronRemote | undefined {
   }
 }
 
-export function isElectronRemoteAvailable(): boolean {
-  return getElectronRemote() !== undefined;
-}
-
 /** Origin-only view of a URL, safe to log - never logs query strings or
  * fragments, which on Amazon's domains can carry session-ish tokens. */
 export function safeUrlOrigin(url: string): string {

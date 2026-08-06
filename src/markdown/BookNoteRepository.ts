@@ -75,11 +75,6 @@ export class BookNoteRepository implements BookNoteWriter {
     private readonly outputFolder: string,
   ) {}
 
-  /** Vault-relative path book notes are written into, e.g. for logging. */
-  describeTarget(): string {
-    return `${this.vault.getName()}/${this.outputFolder}`;
-  }
-
   async upsert(
     book: KindleBook,
     annotations: KindleAnnotation[],

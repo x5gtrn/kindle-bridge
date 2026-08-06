@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getElectronRemote, isElectronRemoteAvailable, safeUrlOrigin } from "./electronRemote";
+import { getElectronRemote, safeUrlOrigin } from "./electronRemote";
 
 describe("getElectronRemote", () => {
   it("degrades gracefully to undefined when electron isn't resolvable (e.g. under Vitest/Node)", () => {
     expect(getElectronRemote()).toBeUndefined();
-    expect(isElectronRemoteAvailable()).toBe(false);
   });
 });
 
