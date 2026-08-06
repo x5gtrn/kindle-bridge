@@ -4,6 +4,7 @@ import {
   SESSION_PARTITION,
   getElectronRemote,
   keepNavigationEmbedded,
+  observeTopLevelNavigation,
   safeUrlOrigin,
 } from "./electronRemote";
 
@@ -61,12 +62,14 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         webPreferences: { partition: SESSION_PARTITION },
       });
       keepNavigationEmbedded(win, (url) => {
-        this.logger.debug(
-          "Amazon login navigation kept embedded (would otherwise have escaped the window)",
-          {
-            origin: safeUrlOrigin(url),
-          },
-        );
+        this.logger.debug("Amazon login new-window request kept embedded", {
+          origin: safeUrlOrigin(url),
+        });
+      });
+      observeTopLevelNavigation(win, (url) => {
+        this.logger.debug("Amazon login will-navigate (observed only, not intercepted)", {
+          origin: safeUrlOrigin(url),
+        });
       });
 
       let settled = false;

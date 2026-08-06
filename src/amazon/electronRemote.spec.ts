@@ -1,21 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import type {
   ElectronBrowserWindow,
-  ElectronNavigationEvent,
   ElectronWindowOpenHandlerDetails,
   ElectronWindowOpenHandlerResponse,
 } from "./electronRemote";
-import { getElectronRemote, keepNavigationEmbedded, safeUrlOrigin } from "./electronRemote";
+import {
+  getElectronRemote,
+  keepNavigationEmbedded,
+  observeTopLevelNavigation,
+  safeUrlOrigin,
+} from "./electronRemote";
 
 function fakeBrowserWindow(): ElectronBrowserWindow & {
   loadURL: ReturnType<typeof vi.fn>;
   triggerNewWindow: (url: string) => ElectronWindowOpenHandlerResponse | undefined;
-  /** Returns whether the will-navigate listener called preventDefault(). */
-  triggerWillNavigate: (url: string) => boolean;
+  triggerWillNavigate: (url: string) => void;
 } {
   let openHandler:
     ((details: ElectronWindowOpenHandlerDetails) => ElectronWindowOpenHandlerResponse) | undefined;
-  let willNavigateListener: ((event: ElectronNavigationEvent, url: string) => void) | undefined;
+  let willNavigateListener: ((event: { preventDefault(): void }, url: string) => void) | undefined;
 
   const win: ElectronBrowserWindow & { loadURL: ReturnType<typeof vi.fn> } = {
     loadURL: vi.fn().mockResolvedValue(undefined),
@@ -42,9 +45,7 @@ function fakeBrowserWindow(): ElectronBrowserWindow & {
   return Object.assign(win, {
     triggerNewWindow: (url: string) => openHandler?.({ url }),
     triggerWillNavigate: (url: string) => {
-      let prevented = false;
-      willNavigateListener?.({ preventDefault: () => (prevented = true) }, url);
-      return prevented;
+      willNavigateListener?.({ preventDefault: () => undefined }, url);
     },
   });
 }
@@ -67,48 +68,48 @@ describe("safeUrlOrigin", () => {
   });
 });
 
-describe("keepNavigationEmbedded", () => {
-  describe("new-window requests (window.open()/target=_blank)", () => {
-    it("denies the new window and loads the URL in the same window instead", () => {
-      const win = fakeBrowserWindow();
-      keepNavigationEmbedded(win);
+describe("keepNavigationEmbedded (new-window requests only)", () => {
+  it("denies the new window and loads the URL in the same window instead", () => {
+    const win = fakeBrowserWindow();
+    keepNavigationEmbedded(win);
 
-      const response = win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
+    const response = win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
 
-      expect(response).toEqual({ action: "deny" });
-      expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-    });
-
-    it("calls onIntercepted with the target URL", () => {
-      const win = fakeBrowserWindow();
-      const onIntercepted = vi.fn();
-      keepNavigationEmbedded(win, onIntercepted);
-
-      win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
-
-      expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-    });
+    expect(response).toEqual({ action: "deny" });
+    expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
   });
 
-  describe("top-level page navigation (will-navigate)", () => {
-    it("prevents the default navigation and loads the URL in the same window instead", () => {
-      const win = fakeBrowserWindow();
-      keepNavigationEmbedded(win);
+  it("calls onIntercepted with the target URL", () => {
+    const win = fakeBrowserWindow();
+    const onIntercepted = vi.fn();
+    keepNavigationEmbedded(win, onIntercepted);
 
-      const prevented = win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
+    win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
 
-      expect(prevented).toBe(true);
-      expect(win.loadURL).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-    });
+    expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+  });
 
-    it("calls onIntercepted with the target URL", () => {
-      const win = fakeBrowserWindow();
-      const onIntercepted = vi.fn();
-      keepNavigationEmbedded(win, onIntercepted);
+  it("does not touch will-navigate at all - top-level navigation is left to observeTopLevelNavigation", () => {
+    const win = fakeBrowserWindow();
+    keepNavigationEmbedded(win);
 
-      win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
+    // No listener was attached by keepNavigationEmbedded, so this is a
+    // no-op; loadURL must not have been called as a side effect of it.
+    win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
 
-      expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-    });
+    expect(win.loadURL).not.toHaveBeenCalled();
+  });
+});
+
+describe("observeTopLevelNavigation", () => {
+  it("calls onNavigate with the target URL but never touches loadURL (no interference)", () => {
+    const win = fakeBrowserWindow();
+    const onNavigate = vi.fn();
+    observeTopLevelNavigation(win, onNavigate);
+
+    win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
+
+    expect(onNavigate).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
+    expect(win.loadURL).not.toHaveBeenCalled();
   });
 });

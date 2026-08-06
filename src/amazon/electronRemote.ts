@@ -28,10 +28,6 @@ export interface ElectronWindowOpenHandlerResponse {
   action: "deny" | "allow";
 }
 
-export interface ElectronNavigationEvent {
-  preventDefault(): void;
-}
-
 export interface ElectronWebContents {
   getURL(): string;
   executeJavaScript<T = unknown>(code: string): Promise<T>;
@@ -51,12 +47,13 @@ export interface ElectronWebContents {
   ): void;
   /** Fires for page/renderer-initiated top-level navigation (e.g. a
    * link click or form submit) - as opposed to did-navigate, which
-   * fires after such a navigation has already happened. Calling
-   * preventDefault() here stops the navigation from proceeding at all
-   * (in this webContents or anywhere else), which is what makes it
-   * possible to redirect it back into the same window ourselves - see
-   * keepNavigationEmbedded(). */
-  on(event: "will-navigate", listener: (event: ElectronNavigationEvent, url: string) => void): void;
+   * fires after such a navigation has already happened. See
+   * observeTopLevelNavigation() - deliberately observation-only, not
+   * intercepted; see that function's doc comment for why. */
+  on(
+    event: "will-navigate",
+    listener: (event: { preventDefault(): void }, url: string) => void,
+  ): void;
   /** See keepNavigationEmbedded() below - the reason this plugin sets
    * this handler at all. */
   setWindowOpenHandler(
@@ -109,32 +106,24 @@ export function getElectronRemote(): ElectronRemote | undefined {
 }
 
 /**
- * Forces navigation triggered from inside `win` - both "new window"
- * requests (e.g. a `target="_blank"` link, or `window.open()`) and
- * top-level page navigation (e.g. a plain link click or form submit,
- * observed via `will-navigate`) - to load in `win` itself instead of
- * escaping elsewhere.
+ * Forces "new window" requests triggered from inside `win` (e.g. a
+ * `target="_blank"` link, or `window.open()`) to load in `win` itself
+ * instead of escaping elsewhere.
  *
- * Without this, either kind of navigation can be routed to the OS's
- * default system browser by an app-level policy outside this plugin's
- * control (Obsidian's own webContents configuration applies process-
- * wide, not just to Obsidian's main window) - stranding the user
- * mid-login with no way back into the plugin's window except
- * cancelling. This is exactly the failure mode documented in
- * docs/risks.md R-05 (also seen in the reference project's issue #337
- * during Phase 0 research): Amazon's sign-in flow can trigger a
- * navigation partway through that escapes, and if it does, this
- * plugin has no visibility into whatever completes in that separate
- * browser - it isn't the same session partition, so even a successful
- * sign-in there doesn't help.
+ * Without this, a new-window request can be routed to the OS's default
+ * system browser by an app-level policy outside this plugin's control
+ * (Obsidian's own webContents configuration applies process-wide, not
+ * just to Obsidian's main window) - stranding the user mid-login with
+ * no way back into the plugin's window except cancelling. This is part
+ * of the failure mode documented in docs/risks.md R-05 (also seen in
+ * the reference project's issue #337 during Phase 0 research).
  *
  * Keeping the navigation inside `win` doesn't bypass any Amazon
  * security measure or fake anything - it's the standard Electron
- * mechanism for "this stays embedded in my own window," and Amazon's
- * own page still renders and behaves identically, just inside our
- * window instead of escaping it. `onIntercepted`, if given, is called
- * with the target URL every time either path is intercepted, purely
- * for optional caller-side debug logging.
+ * mechanism for "this popup stays embedded in my own window." A
+ * `window.open()`/new-window request has no request body to lose (it's
+ * always effectively a fresh GET), so reloading it via `win.loadURL()`
+ * is safe - unlike `will-navigate`, see `observeTopLevelNavigation()`.
  */
 export function keepNavigationEmbedded(
   win: ElectronBrowserWindow,
@@ -145,10 +134,33 @@ export function keepNavigationEmbedded(
     win.loadURL(url).catch(() => undefined);
     return { action: "deny" };
   });
-  win.webContents.on("will-navigate", (event, url) => {
-    onIntercepted?.(url);
-    event.preventDefault();
-    win.loadURL(url).catch(() => undefined);
+}
+
+/**
+ * Observes top-level page navigation (`will-navigate` - e.g. a link
+ * click or form submit) purely for diagnostic logging; does NOT call
+ * `preventDefault()` or otherwise interfere, so navigation proceeds
+ * exactly as it would without this listener attached.
+ *
+ * An earlier version of this function *did* call `preventDefault()`
+ * and manually replay the navigation via `win.loadURL(url)`, mirroring
+ * `keepNavigationEmbedded()`'s new-window handling. That was wrong:
+ * `will-navigate`'s `url` argument carries only the destination URL,
+ * never the original HTTP method or form body. Amazon's sign-in
+ * "Continue" step submits the entered email as a POST; replaying only
+ * the URL downgrades that to a bare GET, which live testing confirmed
+ * visibly breaks the flow (the window reloads but bounces back to the
+ * email step) without actually stopping whatever else was causing the
+ * external-browser escape - see docs/risks.md R-05 for the full trail.
+ * Until a way to preserve POST semantics (or a different escape
+ * mechanism entirely) is identified, this listener only observes.
+ */
+export function observeTopLevelNavigation(
+  win: ElectronBrowserWindow,
+  onNavigate: (url: string) => void,
+): void {
+  win.webContents.on("will-navigate", (_event, url) => {
+    onNavigate(url);
   });
 }
 
