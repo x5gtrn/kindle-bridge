@@ -1,8 +1,33 @@
 # MVP Acceptance Report
 
-Date: 2026-08-06
+Date: 2026-08-06 (original audit); updated 2026-08-07 after live manual testing.
 Scope: Phase 0-3 (MVP) implementation, audited before proceeding to Phase 4.
 Auditor: Claude (this session), self-auditing its own prior implementation work.
+
+## Post-audit update (2026-08-07)
+
+The original audit below (2026-08-06) explicitly could not verify anything requiring a
+real Obsidian/Electron/Amazon environment and recommended manual testing before
+treating the MVP as accepted. That manual testing happened immediately afterward, and
+found a **confirmed blocking issue**: on Obsidian 1.13.4, clicking "Continue" on
+Amazon's sign-in page (after entering an email) causes the navigation to escape the
+plugin's `BrowserWindow` into the user's system default browser instead of proceeding
+inline, stranding the user on the email-entry screen inside Obsidian with no way to
+complete sign-in there. Three rounds of live debugging (see `docs/risks.md` R-05 for
+the full trail) ruled out: a bug in this plugin's own error handling (found and fixed
+separately), passkeys/WebAuthn, conflicts with other installed community plugins
+(reproduced with every other plugin disabled), and every navigation-interception
+mechanism available to a plugin via `webContents` (`setWindowOpenHandler`,
+`will-navigate` with `preventDefault()`). The escape was conclusively shown to happen
+independent of this plugin's own listeners, and independent, external confirmation was
+found: the reference project's GitHub issue #337 describes the identical symptom on the
+identical Obsidian version (1.13.4), reported by multiple unrelated users, still open
+with no fix as of this writing.
+
+**This changes the "Recommendation" below**: "Sign in to Amazon" - the entry point for
+every other feature in this plugin - does not currently work on at least Obsidian
+1.13.4, for reasons external to this plugin's code. See the updated Recommendation
+section for what this means for Phase 4 planning.
 
 ## Summary
 
@@ -203,10 +228,25 @@ Unchanged from `docs/risks.md`/`docs/mvp-scope.md`, restated here for visibility
 
 ## Blocking Issues
 
-**None remaining.** Two were found and fixed during this audit (see Obsidian API
-Review): the `minAppVersion` mismatch and the unload timer leak. No other
-Critical/High-severity issues were found in the repository audit, security review, or
-Obsidian API review.
+**One confirmed, unresolved, and external to this plugin's code** (added 2026-08-07,
+see "Post-audit update" above and `docs/risks.md` R-05): Amazon sign-in does not
+complete on Obsidian 1.13.4 - clicking "Continue" after email entry escapes the
+plugin's `BrowserWindow` to the system browser instead of proceeding inline. Confirmed
+via live testing to be independent of this plugin's own code (three rounds of
+navigation-interception fixes tried and ruled out) and independent of other installed
+plugins (reproduced with all others disabled). Corroborated by the reference project's
+open GitHub issue #337 on the identical Obsidian version. No safe fix has been
+identified from within a community plugin's available APIs; per this project's stated
+principle (docs/architecture.md §4, docs/risks.md R-08), no unsafe workaround (bot-
+detection bypass, fingerprint spoofing, credential harvesting) will be implemented to
+route around it. This blocks the entire "Sign in to Amazon" flow and therefore every
+downstream feature that depends on a valid session (manual sync, book/highlight
+retrieval).
+
+Two other, code-level defects were found and fixed during the original 2026-08-06
+audit (see Obsidian API Review below): the `minAppVersion` mismatch and the unload
+timer leak. No other Critical/High-severity issues were found in the repository audit,
+security review, or Obsidian API review.
 
 ## Non-blocking Issues
 
@@ -247,13 +287,33 @@ before trusting this plugin with a real Amazon account, run:
 
 ## Recommendation
 
-**READY FOR MANUAL ACCEPTANCE**
+**NOT READY FOR MANUAL ACCEPTANCE** *(revised 2026-08-07; was "READY FOR MANUAL
+ACCEPTANCE" in the original 2026-08-06 audit, before live testing uncovered the
+blocking issue above)*
 
-This means: the codebase has no known blocking code-level defects, all automated
-checks pass from a clean install, and the implementation is ready for you to run
-`docs/manual-test-checklist.md` against a real Obsidian install and a real Amazon
-account. It does **not** mean the plugin has been confirmed to work end-to-end against
-real Amazon - that confirmation can only come from completing the manual checklist,
-since the Electron/Amazon-dependent code paths could not be exercised in this
-environment. Please do not treat "READY FOR MANUAL ACCEPTANCE" as equivalent to
-"verified working."
+The original audit found no code-level blocking defects and recommended proceeding to
+manual testing. That manual testing was carried out and found the sign-in flow does
+not work on Obsidian 1.13.4, for reasons confirmed to be outside this plugin's control
+(see "Blocking Issues" and `docs/risks.md` R-05). Since sign-in is the entry point for
+every other feature, the MVP cannot be considered accepted while it's blocked, even
+though the rest of the implementation (parsing, rendering, sync orchestration, Vault
+persistence, error handling, security posture) passed every check available to this
+audit.
+
+**What this does not mean**: it does not mean Phase 0-3's code is low quality or needs
+a rewrite - the two rounds of live debugging that led to this finding also validated
+that plugin loading, the settings UI, region selection, and the confirmation-modal-to-
+BrowserWindow flow all work correctly up to the point Amazon's own page hands off
+elsewhere. The issue is specifically Amazon/Obsidian-version-specific navigation
+behavior this plugin's code cannot safely override.
+
+**Suggested path forward, none implemented without further discussion**:
+1. Monitor the reference project's issue #337 for any upstream resolution or workaround
+   discovered by that (larger) user base.
+2. Test against other Obsidian versions if available, to determine whether this is
+   specific to 1.13.x or broader - useful for deciding whether to pin `minAppVersion`
+   below the affected range, if an unaffected version can be identified.
+3. If neither resolves it, a fundamentally different sign-in mechanism would need
+   design discussion before implementation - this is explicitly flagged as a decision
+   requiring sign-off, not something to implement unilaterally, per this project's
+   working agreement on large design changes.
