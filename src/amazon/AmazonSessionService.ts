@@ -1,6 +1,6 @@
 import { AmazonAuthUnsupportedError } from "./AmazonAuthService";
 import type { AmazonRegion } from "./AmazonRegion";
-import { SESSION_PARTITION, getElectronRemote } from "./electronRemote";
+import { SESSION_PARTITION, getElectronRemote, keepNavigationEmbedded } from "./electronRemote";
 
 const SIGN_IN_URL_MARKER = "/ap/signin";
 
@@ -38,6 +38,7 @@ export class ElectronAmazonSessionService implements AmazonSessionService {
       show: false,
       webPreferences: { partition: SESSION_PARTITION },
     });
+    keepNavigationEmbedded(win);
     try {
       await win.loadURL(region.notebookUrl);
       const finalUrl = win.webContents.getURL();

@@ -3,7 +3,7 @@ import { retryAsync } from "../utils/retry";
 import { AmazonAuthUnsupportedError } from "./AmazonAuthService";
 import { AmazonSessionExpiredError } from "./AmazonSessionService";
 import type { AmazonRegion } from "./AmazonRegion";
-import { SESSION_PARTITION, getElectronRemote } from "./electronRemote";
+import { SESSION_PARTITION, getElectronRemote, keepNavigationEmbedded } from "./electronRemote";
 
 /**
  * Fetches rendered HTML from Amazon's notebook page. The only module
@@ -85,6 +85,7 @@ export class ElectronKindleReaderClient implements KindleReaderClient {
       show: false,
       webPreferences: { partition: SESSION_PARTITION },
     });
+    keepNavigationEmbedded(win);
 
     let httpResponseCode: number | undefined;
     win.webContents.on("did-navigate", (_event, _url, responseCode) => {

@@ -1,6 +1,11 @@
 import type { Logger } from "../utils/logger";
 import type { AmazonRegion } from "./AmazonRegion";
-import { SESSION_PARTITION, getElectronRemote, safeUrlOrigin } from "./electronRemote";
+import {
+  SESSION_PARTITION,
+  getElectronRemote,
+  keepNavigationEmbedded,
+  safeUrlOrigin,
+} from "./electronRemote";
 
 // "unsupported" isn't a member of this union: when Electron's remote
 // bridge isn't available, signIn() throws AmazonAuthUnsupportedError
@@ -55,6 +60,7 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         show: false,
         webPreferences: { partition: SESSION_PARTITION },
       });
+      keepNavigationEmbedded(win);
 
       let settled = false;
 
@@ -117,6 +123,7 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
       show: false,
       webPreferences: { partition: SESSION_PARTITION },
     });
+    keepNavigationEmbedded(win);
     try {
       await win.webContents.session.clearStorageData();
     } finally {
