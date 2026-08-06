@@ -2,7 +2,7 @@
 
 Sync Kindle highlights and memos from your Amazon account into per-book Markdown notes in your Obsidian vault.
 
-**Status:** early development (Phase 0-3 MVP). Not yet published to the Obsidian Community Plugins directory.
+**Status:** Phase 0-3 MVP implemented (manual sync, real Amazon parsing, Vault persistence). Not yet published to the Obsidian Community Plugins directory, and the Electron-`BrowserWindow`-based sign-in/session/fetch code has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - see the note in [`docs/risks.md`](docs/risks.md) R-08 before relying on it.
 
 ## What this is
 
@@ -23,6 +23,7 @@ The following are **intentionally out of scope** for this milestone and planned 
 - No automatic sync on startup or on a schedule - sync is always manual.
 - Only Japan and Global/United States Amazon regions (a region registry makes adding more low-effort later, but no other regions ship in this milestone).
 - No advanced cancellation UI beyond preventing overlapping syncs.
+- Only the first page of a book's highlights/memos is fetched - very heavily annotated books beyond Amazon's per-page limit won't sync everything (see `docs/risks.md` R-17).
 - Not submitted to the Community Plugins directory yet.
 - **Desktop only.** This plugin relies on Electron APIs available in Obsidian's desktop app and does not work on Obsidian Mobile (iOS/Android).
 
