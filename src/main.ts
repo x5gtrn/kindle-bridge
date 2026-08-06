@@ -35,7 +35,7 @@ export default class KindleBridgePlugin extends Plugin {
   settings: KindleBridgeSettings = DEFAULT_SETTINGS;
   logger = new Logger({ level: "info" });
 
-  private readonly authService = new ElectronAmazonAuthService(this.logger);
+  private readonly authService = new ElectronAmazonAuthService(this.app, this.logger);
   private readonly sessionService = new ElectronAmazonSessionService();
   private readonly readerClient = new ElectronKindleReaderClient(this.logger);
   private readonly syncCoordinator = new SyncCoordinator();

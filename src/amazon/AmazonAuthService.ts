@@ -1,152 +1,60 @@
+import type { App } from "obsidian";
 import type { Logger } from "../utils/logger";
+import { AmazonAuthUnsupportedError, type AmazonLoginResult } from "./AmazonAuthTypes";
 import type { AmazonRegion } from "./AmazonRegion";
-import {
-  SESSION_PARTITION,
-  getElectronRemote,
-  keepNavigationEmbedded,
-  observeTopLevelNavigation,
-  safeUrlOrigin,
-} from "./electronRemote";
+import { SESSION_PARTITION, getElectronRemote } from "./electronRemote";
 
-// "unsupported" isn't a member of this union: when Electron's remote
-// bridge isn't available, signIn() throws AmazonAuthUnsupportedError
-// instead of resolving, so callers can't silently ignore it.
-export type AmazonLoginResult = "success" | "cancelled" | "timeout" | "navigation-error";
-
-const LOGIN_WINDOW_WIDTH = 450;
-const LOGIN_WINDOW_HEIGHT = 730;
-const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
-
-/**
- * Thrown when the host Obsidian/Electron build does not expose what this
- * plugin needs (BrowserWindow via a supported remote bridge) to show
- * Amazon's own login page safely. When this happens the plugin must
- * surface a clear error rather than fall back to an insecure method -
- * see docs/risks.md R-08.
- */
-export class AmazonAuthUnsupportedError extends Error {
-  constructor() {
-    super("In-app Amazon sign-in isn't supported on this Obsidian/Electron version.");
-    this.name = "AmazonAuthUnsupportedError";
-  }
-}
+export { AmazonAuthUnsupportedError } from "./AmazonAuthTypes";
+export type { AmazonLoginResult } from "./AmazonAuthTypes";
 
 /**
  * Signs a user in/out of Amazon using Amazon's own official login page
- * rendered in an Electron window. Never collects or stores email,
- * password, or OTP; never touches cookies directly (see
- * docs/architecture.md §4).
+ * rendered inside an embedded `<webview>` (see ui/AmazonSignInModal.ts).
+ * Never collects or stores email, password, or OTP; never touches
+ * cookies directly (see docs/architecture.md §4).
  */
 export interface AmazonAuthService {
   signIn(region: AmazonRegion): Promise<AmazonLoginResult>;
   signOut(region: AmazonRegion): Promise<void>;
+  cancelPendingSignIn(): void;
 }
 
 export class ElectronAmazonAuthService implements AmazonAuthService {
-  /** Cancels the in-flight sign-in, if any - see cancelPendingSignIn(). */
-  private pendingCancel?: () => void;
+  /** The modal for an in-flight sign-in, if any - see
+   * cancelPendingSignIn(). Typed loosely (just the one method this
+   * class needs) so this file doesn't need a top-level import of
+   * ui/AmazonSignInModal.ts, which itself imports Obsidian's Modal
+   * class - a real runtime value the `obsidian` npm package doesn't
+   * provide (types only), so importing it here would break this file
+   * under Vitest. signIn() below loads it lazily instead. */
+  private activeSignIn?: { cancel(): void };
 
-  constructor(private readonly logger: Logger) {}
+  constructor(
+    private readonly app: App,
+    private readonly logger: Logger,
+  ) {}
 
-  signIn(region: AmazonRegion): Promise<AmazonLoginResult> {
-    this.logger.debug("Amazon login: signIn() called", { region: region.id });
-
-    const remote = getElectronRemote();
-    if (!remote) {
-      this.logger.debug("Amazon login: Electron remote bridge unavailable, aborting");
-      throw new AmazonAuthUnsupportedError();
+  async signIn(region: AmazonRegion): Promise<AmazonLoginResult> {
+    const { AmazonSignInModal } = await import("../ui/AmazonSignInModal");
+    const modal = new AmazonSignInModal(this.app, region, SESSION_PARTITION, this.logger);
+    this.activeSignIn = modal;
+    try {
+      return await modal.waitForOutcome();
+    } finally {
+      if (this.activeSignIn === modal) {
+        this.activeSignIn = undefined;
+      }
     }
-    this.logger.debug("Amazon login: Electron remote bridge available");
-
-    return new Promise<AmazonLoginResult>((resolve) => {
-      const win = new remote.BrowserWindow({
-        width: LOGIN_WINDOW_WIDTH,
-        height: LOGIN_WINDOW_HEIGHT,
-        show: false,
-        webPreferences: { partition: SESSION_PARTITION },
-      });
-      this.logger.debug("Amazon login: BrowserWindow created");
-
-      keepNavigationEmbedded(win, (url) => {
-        this.logger.debug("Amazon login new-window request kept embedded", {
-          origin: safeUrlOrigin(url),
-        });
-      });
-      observeTopLevelNavigation(win, (url) => {
-        this.logger.debug("Amazon login will-navigate (observed only, not intercepted)", {
-          origin: safeUrlOrigin(url),
-        });
-      });
-
-      let settled = false;
-
-      const finish = (result: AmazonLoginResult): void => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        this.logger.debug("Amazon login: finishing", { result });
-        clearTimeout(timeoutHandle);
-        this.pendingCancel = undefined;
-        if (!win.isDestroyed()) {
-          win.close();
-        }
-        resolve(result);
-      };
-
-      this.pendingCancel = () => finish("cancelled");
-
-      const timeoutHandle = setTimeout(() => finish("timeout"), LOGIN_TIMEOUT_MS);
-
-      win.once("ready-to-show", () => {
-        this.logger.debug("Amazon login: ready-to-show fired, showing window");
-        win.show();
-      });
-
-      win.webContents.on("did-navigate", (_event, url) => {
-        this.logger.debug("Amazon login navigation", { origin: safeUrlOrigin(url) });
-        if (url.startsWith(region.kindleReaderUrl)) {
-          finish("success");
-        }
-      });
-      win.webContents.on("did-navigate-in-page", (_event, url) => {
-        this.logger.debug("Amazon login in-page navigation", { origin: safeUrlOrigin(url) });
-        if (url.startsWith(region.kindleReaderUrl)) {
-          finish("success");
-        }
-      });
-      win.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
-        this.logger.warn("Amazon login navigation failed", { errorCode, errorDescription });
-        finish("navigation-error");
-      });
-      win.on("closed", () => {
-        this.logger.debug("Amazon login: window closed");
-        finish("cancelled");
-      });
-
-      this.logger.debug("Amazon login: calling loadURL", {
-        origin: safeUrlOrigin(region.notebookUrl),
-      });
-      win
-        .loadURL(region.notebookUrl)
-        .then(() => this.logger.debug("Amazon login: loadURL promise resolved"))
-        .catch((error: unknown) => {
-          this.logger.warn("Amazon login: loadURL promise rejected", {
-            message: error instanceof Error ? error.message : String(error),
-          });
-          finish("navigation-error");
-        });
-    });
   }
 
   /**
-   * Cancels an in-flight sign-in (closing its window and clearing its
-   * timeout) if one is in progress; a no-op otherwise. Called from
-   * main.ts's onunload() so a pending 5-minute login timeout never
-   * outlives the plugin instance - see docs/mvp-acceptance-report.md.
+   * Cancels an in-flight sign-in (closing its modal) if one is in
+   * progress; a no-op otherwise. Called from main.ts's onunload() so a
+   * pending sign-in never outlives the plugin instance - see
+   * docs/mvp-acceptance-report.md.
    */
   cancelPendingSignIn(): void {
-    this.pendingCancel?.();
+    this.activeSignIn?.cancel();
   }
 
   async signOut(_region: AmazonRegion): Promise<void> {
@@ -154,17 +62,6 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
     if (!remote) {
       throw new AmazonAuthUnsupportedError();
     }
-    const win = new remote.BrowserWindow({
-      show: false,
-      webPreferences: { partition: SESSION_PARTITION },
-    });
-    keepNavigationEmbedded(win);
-    try {
-      await win.webContents.session.clearStorageData();
-    } finally {
-      if (!win.isDestroyed()) {
-        win.close();
-      }
-    }
+    await remote.session.fromPartition(SESSION_PARTITION).clearStorageData();
   }
 }

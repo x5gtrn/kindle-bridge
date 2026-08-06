@@ -4,21 +4,14 @@ import type {
   ElectronWindowOpenHandlerDetails,
   ElectronWindowOpenHandlerResponse,
 } from "./electronRemote";
-import {
-  getElectronRemote,
-  keepNavigationEmbedded,
-  observeTopLevelNavigation,
-  safeUrlOrigin,
-} from "./electronRemote";
+import { getElectronRemote, keepNavigationEmbedded, safeUrlOrigin } from "./electronRemote";
 
 function fakeBrowserWindow(): ElectronBrowserWindow & {
   loadURL: ReturnType<typeof vi.fn>;
   triggerNewWindow: (url: string) => ElectronWindowOpenHandlerResponse | undefined;
-  triggerWillNavigate: (url: string) => void;
 } {
   let openHandler:
     ((details: ElectronWindowOpenHandlerDetails) => ElectronWindowOpenHandlerResponse) | undefined;
-  let willNavigateListener: ((event: { preventDefault(): void }, url: string) => void) | undefined;
 
   const win: ElectronBrowserWindow & { loadURL: ReturnType<typeof vi.fn> } = {
     loadURL: vi.fn().mockResolvedValue(undefined),
@@ -31,11 +24,7 @@ function fakeBrowserWindow(): ElectronBrowserWindow & {
       getURL: () => "",
       executeJavaScript: <T>() => Promise.resolve(undefined as T),
       session: { clearStorageData: () => Promise.resolve() },
-      on: (event: string, listener: unknown) => {
-        if (event === "will-navigate") {
-          willNavigateListener = listener as typeof willNavigateListener;
-        }
-      },
+      on: () => undefined,
       setWindowOpenHandler: (handler) => {
         openHandler = handler;
       },
@@ -44,9 +33,6 @@ function fakeBrowserWindow(): ElectronBrowserWindow & {
 
   return Object.assign(win, {
     triggerNewWindow: (url: string) => openHandler?.({ url }),
-    triggerWillNavigate: (url: string) => {
-      willNavigateListener?.({ preventDefault: () => undefined }, url);
-    },
   });
 }
 
@@ -68,7 +54,7 @@ describe("safeUrlOrigin", () => {
   });
 });
 
-describe("keepNavigationEmbedded (new-window requests only)", () => {
+describe("keepNavigationEmbedded", () => {
   it("denies the new window and loads the URL in the same window instead", () => {
     const win = fakeBrowserWindow();
     keepNavigationEmbedded(win);
@@ -87,29 +73,5 @@ describe("keepNavigationEmbedded (new-window requests only)", () => {
     win.triggerNewWindow("https://www.amazon.co.jp/ap/signin");
 
     expect(onIntercepted).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-  });
-
-  it("does not touch will-navigate at all - top-level navigation is left to observeTopLevelNavigation", () => {
-    const win = fakeBrowserWindow();
-    keepNavigationEmbedded(win);
-
-    // No listener was attached by keepNavigationEmbedded, so this is a
-    // no-op; loadURL must not have been called as a side effect of it.
-    win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
-
-    expect(win.loadURL).not.toHaveBeenCalled();
-  });
-});
-
-describe("observeTopLevelNavigation", () => {
-  it("calls onNavigate with the target URL but never touches loadURL (no interference)", () => {
-    const win = fakeBrowserWindow();
-    const onNavigate = vi.fn();
-    observeTopLevelNavigation(win, onNavigate);
-
-    win.triggerWillNavigate("https://www.amazon.co.jp/ap/signin");
-
-    expect(onNavigate).toHaveBeenCalledWith("https://www.amazon.co.jp/ap/signin");
-    expect(win.loadURL).not.toHaveBeenCalled();
   });
 });

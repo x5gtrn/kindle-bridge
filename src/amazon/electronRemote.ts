@@ -45,15 +45,6 @@ export interface ElectronWebContents {
     event: "did-fail-load",
     listener: (event: unknown, errorCode: number, errorDescription: string) => void,
   ): void;
-  /** Fires for page/renderer-initiated top-level navigation (e.g. a
-   * link click or form submit) - as opposed to did-navigate, which
-   * fires after such a navigation has already happened. See
-   * observeTopLevelNavigation() - deliberately observation-only, not
-   * intercepted; see that function's doc comment for why. */
-  on(
-    event: "will-navigate",
-    listener: (event: { preventDefault(): void }, url: string) => void,
-  ): void;
   /** See keepNavigationEmbedded() below - the reason this plugin sets
    * this handler at all. */
   setWindowOpenHandler(
@@ -87,8 +78,13 @@ export interface ElectronBrowserWindowConstructor {
   new (options: ElectronBrowserWindowOptions): ElectronBrowserWindow;
 }
 
+export interface ElectronRemoteSession {
+  fromPartition(partition: string): ElectronSession;
+}
+
 export interface ElectronRemote {
   BrowserWindow: ElectronBrowserWindowConstructor;
+  session: ElectronRemoteSession;
 }
 
 interface ElectronModuleShape {
@@ -123,7 +119,20 @@ export function getElectronRemote(): ElectronRemote | undefined {
  * mechanism for "this popup stays embedded in my own window." A
  * `window.open()`/new-window request has no request body to lose (it's
  * always effectively a fresh GET), so reloading it via `win.loadURL()`
- * is safe - unlike `will-navigate`, see `observeTopLevelNavigation()`.
+ * is safe.
+ *
+ * Note: an earlier version of this module also tried the equivalent
+ * for top-level `will-navigate` events (a plain link click or form
+ * submit, as opposed to a new-window request) - that was reverted. A
+ * `will-navigate` event's `url` argument carries only the destination
+ * URL, never the original HTTP method or form body, so replaying it
+ * via `loadURL()` silently downgrades a POST (e.g. Amazon's sign-in
+ * "Continue" step, which submits the entered email) to a bare GET.
+ * Live testing confirmed this visibly broke the sign-in flow without
+ * even fixing the escape it was meant to address - see docs/risks.md
+ * R-05 for the full trail. The sign-in flow now uses an embedded
+ * `<webview>` instead of a separate `BrowserWindow` - see
+ * ui/AmazonSignInModal.ts.
  */
 export function keepNavigationEmbedded(
   win: ElectronBrowserWindow,
@@ -133,34 +142,6 @@ export function keepNavigationEmbedded(
     onIntercepted?.(url);
     win.loadURL(url).catch(() => undefined);
     return { action: "deny" };
-  });
-}
-
-/**
- * Observes top-level page navigation (`will-navigate` - e.g. a link
- * click or form submit) purely for diagnostic logging; does NOT call
- * `preventDefault()` or otherwise interfere, so navigation proceeds
- * exactly as it would without this listener attached.
- *
- * An earlier version of this function *did* call `preventDefault()`
- * and manually replay the navigation via `win.loadURL(url)`, mirroring
- * `keepNavigationEmbedded()`'s new-window handling. That was wrong:
- * `will-navigate`'s `url` argument carries only the destination URL,
- * never the original HTTP method or form body. Amazon's sign-in
- * "Continue" step submits the entered email as a POST; replaying only
- * the URL downgrades that to a bare GET, which live testing confirmed
- * visibly breaks the flow (the window reloads but bounces back to the
- * email step) without actually stopping whatever else was causing the
- * external-browser escape - see docs/risks.md R-05 for the full trail.
- * Until a way to preserve POST semantics (or a different escape
- * mechanism entirely) is identified, this listener only observes.
- */
-export function observeTopLevelNavigation(
-  win: ElectronBrowserWindow,
-  onNavigate: (url: string) => void,
-): void {
-  win.webContents.on("will-navigate", (_event, url) => {
-    onNavigate(url);
   });
 }
 
