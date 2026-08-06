@@ -2,12 +2,18 @@ import { App, Notice, Plugin } from "obsidian";
 import { ElectronAmazonAuthService } from "./amazon/AmazonAuthService";
 import { getAmazonRegion } from "./amazon/AmazonRegion";
 import {
+  AmazonSessionExpiredError,
+  ElectronAmazonSessionService,
+} from "./amazon/AmazonSessionService";
+import { ElectronKindleReaderClient } from "./amazon/KindleReaderClient";
+import { BookNoteRepository } from "./markdown/BookNoteRepository";
+import {
   DEFAULT_SETTINGS,
   normalizeSettings,
   type KindleBridgeSettings,
 } from "./settings/KindleBridgeSettings";
 import { KindleBridgeSettingTab } from "./settings/KindleBridgeSettingTab";
-import { NotImplementedKindleSyncService } from "./sync/KindleSyncService";
+import { AmazonKindleSyncService } from "./sync/KindleSyncService";
 import { SyncAlreadyInProgressError, SyncCoordinator } from "./sync/SyncCoordinator";
 import { LoginModal } from "./ui/LoginModal";
 import { SyncProgressModal } from "./ui/SyncProgressModal";
@@ -29,8 +35,10 @@ export default class KindleBridgePlugin extends Plugin {
   settings: KindleBridgeSettings = DEFAULT_SETTINGS;
   logger = new Logger({ level: "info" });
 
-  private readonly authService = new ElectronAmazonAuthService();
-  private readonly syncCoordinator = new SyncCoordinator(new NotImplementedKindleSyncService());
+  private readonly authService = new ElectronAmazonAuthService(this.logger);
+  private readonly sessionService = new ElectronAmazonSessionService();
+  private readonly readerClient = new ElectronKindleReaderClient(this.logger);
+  private readonly syncCoordinator = new SyncCoordinator();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -71,8 +79,9 @@ export default class KindleBridgePlugin extends Plugin {
   }
 
   onunload(): void {
-    // No open resources to release yet; Phase 3 will close any
-    // in-flight Electron login/session windows here.
+    // No open resources to release yet; sign-in/sync windows close
+    // themselves (see AmazonAuthService/KindleReaderClient) as soon as
+    // they resolve, so there's nothing left dangling on unload.
   }
 
   async loadSettings(): Promise<void> {
@@ -90,7 +99,13 @@ export default class KindleBridgePlugin extends Plugin {
   }
 
   private runSignIn(): void {
-    const region = this.currentRegion();
+    let region;
+    try {
+      region = this.currentRegion();
+    } catch (error) {
+      this.notifyError("Sign-in failed", error);
+      return;
+    }
     new LoginModal(this.app, region, () => {
       void this.authService
         .signIn(region)
@@ -116,7 +131,22 @@ export default class KindleBridgePlugin extends Plugin {
 
   private async runSync(): Promise<void> {
     try {
-      const result = await this.syncCoordinator.sync(this.currentRegion());
+      const region = this.currentRegion();
+      const bookNoteRepository = new BookNoteRepository(
+        this.app.vault,
+        this.app.metadataCache,
+        this.app.fileManager,
+        this.settings.outputFolder,
+      );
+      const syncService = new AmazonKindleSyncService({
+        sessionService: this.sessionService,
+        readerClient: this.readerClient,
+        bookNoteRepository,
+        logger: this.logger,
+        getDisplayCoverImage: () => this.settings.displayCoverImage,
+      });
+
+      const result = await this.syncCoordinator.sync(region, syncService);
       new Notice(
         `Kindle Bridge: sync complete (${result.notesCreated} created, ${result.notesUpdated} updated, ${result.errors} errors).`,
       );
@@ -124,6 +154,12 @@ export default class KindleBridgePlugin extends Plugin {
     } catch (error) {
       if (error instanceof SyncAlreadyInProgressError) {
         new Notice("Kindle Bridge: a sync is already in progress.");
+        return;
+      }
+      if (error instanceof AmazonSessionExpiredError) {
+        new Notice(
+          'Kindle Bridge: your Amazon session has expired. Run "Kindle Bridge: Sign in to Amazon" and try again.',
+        );
         return;
       }
       this.notifyError("Sync failed", error);
