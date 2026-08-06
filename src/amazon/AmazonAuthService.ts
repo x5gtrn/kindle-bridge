@@ -37,6 +37,9 @@ export interface AmazonAuthService {
 }
 
 export class ElectronAmazonAuthService implements AmazonAuthService {
+  /** Cancels the in-flight sign-in, if any - see cancelPendingSignIn(). */
+  private pendingCancel?: () => void;
+
   constructor(private readonly logger: Logger) {}
 
   signIn(region: AmazonRegion): Promise<AmazonLoginResult> {
@@ -61,11 +64,14 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
         }
         settled = true;
         clearTimeout(timeoutHandle);
+        this.pendingCancel = undefined;
         if (!win.isDestroyed()) {
           win.close();
         }
         resolve(result);
       };
+
+      this.pendingCancel = () => finish("cancelled");
 
       const timeoutHandle = setTimeout(() => finish("timeout"), LOGIN_TIMEOUT_MS);
 
@@ -90,6 +96,16 @@ export class ElectronAmazonAuthService implements AmazonAuthService {
 
       win.loadURL(region.notebookUrl).catch(() => finish("navigation-error"));
     });
+  }
+
+  /**
+   * Cancels an in-flight sign-in (closing its window and clearing its
+   * timeout) if one is in progress; a no-op otherwise. Called from
+   * main.ts's onunload() so a pending 5-minute login timeout never
+   * outlives the plugin instance - see docs/mvp-acceptance-report.md.
+   */
+  cancelPendingSignIn(): void {
+    this.pendingCancel?.();
   }
 
   async signOut(_region: AmazonRegion): Promise<void> {

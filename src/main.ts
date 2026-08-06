@@ -79,9 +79,12 @@ export default class KindleBridgePlugin extends Plugin {
   }
 
   onunload(): void {
-    // No open resources to release yet; sign-in/sync windows close
-    // themselves (see AmazonAuthService/KindleReaderClient) as soon as
-    // they resolve, so there's nothing left dangling on unload.
+    // A sign-in in progress has up to a 5-minute pending timeout
+    // (AmazonAuthService.LOGIN_TIMEOUT_MS); cancel it so it can't fire
+    // after this plugin instance is gone. Sync's per-request windows are
+    // all short-lived and self-close as soon as they resolve, so there's
+    // nothing else to release here.
+    this.authService.cancelPendingSignIn();
   }
 
   async loadSettings(): Promise<void> {

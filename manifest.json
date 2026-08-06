@@ -2,7 +2,7 @@
   "id": "obsidian-kindle-bridge",
   "name": "Obsidian Kindle Bridge",
   "version": "0.1.0",
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.4.4",
   "description": "Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your vault.",
   "author": "Daisuke Masuda",
   "authorUrl": "",
