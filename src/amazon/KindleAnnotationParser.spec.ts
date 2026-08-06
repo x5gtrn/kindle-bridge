@@ -153,4 +153,38 @@ describe("parseAnnotations", () => {
       expect(first?.contentHash).toBe(second?.contentHash);
     });
   });
+
+  describe("present-but-empty vs. absent optional fields", () => {
+    it("treats a present-but-whitespace-only memo element the same as no memo at all", () => {
+      const html = `
+        <div id="kp-notebook-annotations">
+          <div class="a-row a-spacing-base kp-notebook-annotation">
+            <div class="kp-notebook-highlight-text">A highlight with an empty note element.</div>
+            <div class="kp-notebook-note-text">   </div>
+          </div>
+        </div>
+      `;
+      const [annotation] = parseAnnotations(html, "book-1", getAmazonRegion("global"));
+      expect(annotation).toBeDefined();
+      expect(annotation?.type).toBe("highlight");
+      expect(annotation?.memo).toBeUndefined();
+    });
+
+    it("treats a present-but-empty location/page/created value the same as an absent attribute", () => {
+      const html = `
+        <div id="kp-notebook-annotations">
+          <div class="a-row a-spacing-base kp-notebook-annotation">
+            <div class="kp-notebook-highlight-text">A highlight with blank metadata attributes.</div>
+            <input type="hidden" class="kp-annotation-location" value="" />
+            <input type="hidden" class="kp-annotation-page" value="   " />
+            <input type="hidden" class="kp-annotation-created" value="" />
+          </div>
+        </div>
+      `;
+      const [annotation] = parseAnnotations(html, "book-1", getAmazonRegion("global"));
+      expect(annotation?.location).toBeUndefined();
+      expect(annotation?.page).toBeUndefined();
+      expect(annotation?.createdAt).toBeUndefined();
+    });
+  });
 });

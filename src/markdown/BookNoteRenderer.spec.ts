@@ -112,6 +112,62 @@ describe("renderBookNote", () => {
     expect(initialBody).not.toContain("![Book cover]");
   });
 
+  it("omits the Amazon link line, and falls back to the cover image's own URL as its link target, when amazonUrl is absent", () => {
+    const { initialBody } = renderBookNote(
+      { ...book, amazonUrl: undefined },
+      [highlightOnly],
+      options,
+    );
+    expect(initialBody).not.toContain("**Amazon:**");
+    expect(initialBody).toContain(`[![Book cover](${book.coverImageUrl})](${book.coverImageUrl})`);
+  });
+
+  it("omits both the cover image and the Amazon link when the book has neither", () => {
+    const { initialBody } = renderBookNote(
+      { ...book, coverImageUrl: undefined, amazonUrl: undefined },
+      [highlightOnly],
+      options,
+    );
+    expect(initialBody).not.toContain("![Book cover]");
+    expect(initialBody).not.toContain("**Amazon:**");
+  });
+
+  it("passes Markdown special characters in highlight/memo text through unescaped (known cosmetic limitation)", () => {
+    const specialCharsAnnotation: KindleAnnotation = {
+      id: "annotation-5",
+      bookId: book.id,
+      type: "highlight",
+      text: "Text with *asterisks*, # a hash, and [brackets](url).",
+      memo: "Memo with _underscores_ and a | pipe.",
+      sourceUrl: "https://example.com/",
+      contentHash: "hash-5",
+    };
+    const { generatedBlockBody } = renderBookNote(book, [specialCharsAnnotation], options);
+    // Documents current behavior: no escaping is applied. If Amazon-sourced
+    // text ever contains Markdown syntax, it renders as formatting rather
+    // than literal text - a cosmetic issue, not a data-loss or file-
+    // corruption one, since the underlying content is preserved verbatim.
+    expect(generatedBlockBody).toContain("Text with *asterisks*, # a hash, and [brackets](url).");
+    expect(generatedBlockBody).toContain("Memo with _underscores_ and a | pipe.");
+  });
+
+  it("passes YAML-special characters in title/authors through to the frontmatter object unmodified", () => {
+    const trickyBook: KindleBook = {
+      ...book,
+      title: 'Title: "With" a colon and quotes',
+      authors: ["O'Brien: The Author"],
+    };
+    const { frontmatter } = renderBookNote(trickyBook, [highlightOnly], options);
+    // BookNoteRenderer must not attempt its own YAML escaping - the value
+    // is handed to Obsidian's FileManager.processFrontMatter as-is, which
+    // owns YAML serialization (see docs/architecture.md §7). This only
+    // verifies we don't mangle the string ourselves; actual YAML file
+    // output is not exercised by this pure-function test (real Obsidian
+    // is required - see docs/manual-test-checklist.md).
+    expect(frontmatter.title).toBe('Title: "With" a colon and quotes');
+    expect(frontmatter.authors).toEqual(["O'Brien: The Author"]);
+  });
+
   it("renders a plain highlight with location, created date, and source", () => {
     const { generatedBlockBody } = renderBookNote(book, [highlightOnly], options);
     expect(generatedBlockBody).toContain("### Highlight");

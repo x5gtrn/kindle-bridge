@@ -256,4 +256,72 @@ describe("BookNoteRepository", () => {
     );
     expect(vault.files.get(path)?.content).toBe(originalContent);
   });
+
+  it("throws GeneratedBlockMissingError when only the start marker survived (end marker deleted)", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    const originalContent = `# Book Title\n\n${GENERATED_BLOCK_START}\n\nold content, no end marker\n\n## My Notes\n`;
+    vault.files.set(path, {
+      path,
+      content: originalContent,
+      frontmatter: { kindle_book_id: book.id },
+    });
+
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).rejects.toThrow(
+      GeneratedBlockMissingError,
+    );
+    expect(vault.files.get(path)?.content).toBe(originalContent);
+  });
+
+  it("throws GeneratedBlockMissingError when only the end marker survived (start marker deleted)", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    const originalContent = `# Book Title\n\nno start marker\n\nold content\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`;
+    vault.files.set(path, {
+      path,
+      content: originalContent,
+      frontmatter: { kindle_book_id: book.id },
+    });
+
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).rejects.toThrow(
+      GeneratedBlockMissingError,
+    );
+    expect(vault.files.get(path)?.content).toBe(originalContent);
+  });
+
+  it("throws GeneratedBlockMissingError when the markers survived but in reversed order", async () => {
+    const path = "Highlight and Memo/Books/Book Title.md";
+    // A user could plausibly reorder content by hand; end-before-start
+    // must never be treated as a valid (empty) region to overwrite.
+    const originalContent = `# Book Title\n\n${GENERATED_BLOCK_END}\n\nswapped\n\n${GENERATED_BLOCK_START}\n\n## My Notes\n`;
+    vault.files.set(path, {
+      path,
+      content: originalContent,
+      frontmatter: { kindle_book_id: book.id },
+    });
+
+    const repo = buildRepository(vault);
+    await expect(repo.upsert(book, [annotation], renderOptions)).rejects.toThrow(
+      GeneratedBlockMissingError,
+    );
+    expect(vault.files.get(path)?.content).toBe(originalContent);
+  });
+
+  it("saves a book note when the title contains characters illegal in file names", async () => {
+    const illegalTitleBook: KindleBook = {
+      ...book,
+      title: 'Who: What? "Why" <This/That>|Really*',
+    };
+    const repo = buildRepository(vault);
+    const outcome = await repo.upsert(illegalTitleBook, [annotation], renderOptions);
+
+    expect(outcome).toBe("created");
+    const savedPaths = [...vault.files.keys()];
+    expect(savedPaths).toHaveLength(1);
+    const savedPath = savedPaths[0];
+    expect(savedPath).toBeDefined();
+    // No character illegal in file names survives into the saved path.
+    expect(savedPath).not.toMatch(/[\\:*?"<>|]/);
+    expect(vault.files.get(savedPath ?? "")?.frontmatter.title).toBe(illegalTitleBook.title);
+  });
 });

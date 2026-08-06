@@ -6,7 +6,11 @@ import { AmazonAuthUnsupportedError } from "../amazon/AmazonAuthService";
 import { getAmazonRegion } from "../amazon/AmazonRegion";
 import type { AmazonSessionService } from "../amazon/AmazonSessionService";
 import { AmazonSessionExpiredError } from "../amazon/AmazonSessionService";
-import { HttpTooManyRequestsError, type KindleReaderClient } from "../amazon/KindleReaderClient";
+import {
+  HttpTooManyRequestsError,
+  TransientNetworkError,
+  type KindleReaderClient,
+} from "../amazon/KindleReaderClient";
 import type { BookNoteWriter } from "../markdown/BookNoteRepository";
 import { Logger } from "../utils/logger";
 import { AmazonKindleSyncService, BookListFetchError } from "./KindleSyncService";
@@ -19,6 +23,7 @@ function loadFixture(name: string): string {
 
 const booksHtml = loadFixture("books-jp.html");
 const annotationsHtml = loadFixture("annotations-full.html");
+const malformedAnnotationsHtml = loadFixture("annotations-malformed.html");
 const region = getAmazonRegion("jp");
 
 function fakeSessionService(valid: boolean): AmazonSessionService {
@@ -173,5 +178,94 @@ describe("AmazonKindleSyncService", () => {
       expect.anything(),
       expect.objectContaining({ displayCoverImage: false }),
     );
+  });
+
+  it("counts every book as a success when all books sync cleanly", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml: vi.fn().mockResolvedValue(annotationsHtml),
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(result.booksFound).toBe(2);
+    expect(result.notesCreated).toBe(2);
+    expect(result.notesUpdated).toBe(0);
+    expect(result.errors).toBe(0);
+    expect(result.skipped).toBe(0);
+  });
+
+  it("counts a repository 'updated' outcome as notesUpdated, not notesCreated", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    bookNoteRepository.upsert.mockResolvedValue("updated");
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml: vi.fn().mockResolvedValue(annotationsHtml),
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(result.notesCreated).toBe(0);
+    expect(result.notesUpdated).toBe(2);
+  });
+
+  it("isolates a TransientNetworkError (exhausted retries) to the one book, continuing the sync", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    const fetchBookAnnotationsHtml = vi
+      .fn()
+      .mockImplementation((_region: unknown, asin: string) => {
+        if (asin === "B0JPBOOK0001") {
+          return Promise.resolve(annotationsHtml);
+        }
+        return Promise.reject(new TransientNetworkError("connection reset"));
+      });
+
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml,
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(result.notesCreated).toBe(1);
+    expect(result.errors).toBe(1);
+  });
+
+  it("isolates a KindleParseError (Amazon markup mismatch) to the one book, continuing the sync", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    const fetchBookAnnotationsHtml = vi
+      .fn()
+      .mockImplementation((_region: unknown, asin: string) => {
+        if (asin === "B0JPBOOK0001") {
+          return Promise.resolve(annotationsHtml);
+        }
+        // Triggers a real KindleParseError from parseAnnotations (missing
+        // #kp-notebook-annotations container), exercising the same
+        // per-book catch path as a fetch failure.
+        return Promise.resolve(malformedAnnotationsHtml);
+      });
+
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml,
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(result.notesCreated).toBe(1);
+    expect(result.errors).toBe(1);
   });
 });
