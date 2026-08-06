@@ -2,7 +2,7 @@
 
 Sync Kindle highlights and memos from your Amazon account into per-book Markdown notes in your Obsidian vault.
 
-**Status:** Phase 0-3 MVP implemented (manual sync, real Amazon parsing, Vault persistence). Not yet published to the Obsidian Community Plugins directory, and the Electron-`BrowserWindow`-based sign-in/session/fetch code has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - see the note in [`docs/risks.md`](docs/risks.md) R-08 before relying on it.
+**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory, and the Electron-`BrowserWindow`-based sign-in/session/fetch code has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - run [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) before relying on it, and see the note in [`docs/risks.md`](docs/risks.md) R-08.
 
 ## What this is
 
@@ -47,6 +47,8 @@ To try the plugin in a vault, symlink or copy this folder (after `npm run build`
 - [`docs/architecture.md`](docs/architecture.md) - component layout, region abstraction, auth/session design, extension points.
 - [`docs/risks.md`](docs/risks.md) - known risks (Amazon HTML changes, session handling, MFA/CAPTCHA, etc.) and mitigations.
 - [`docs/mvp-scope.md`](docs/mvp-scope.md) - explicit in-scope/out-of-scope list for this milestone.
+- [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md) - self-audit of the Phase 0-3 implementation: repository/security/Obsidian-API review, completion-criteria table, what's automatically verified vs. not.
+- [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) - step-by-step manual tests to run against a real Obsidian install and Amazon account before trusting this plugin with your data.
 
 ## Acknowledgements
 

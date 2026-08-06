@@ -92,6 +92,7 @@ interface AmazonRegion {
 - **Sign out**: `AmazonAuthService.signOut()` opens a hidden `BrowserWindow` on the same partition and calls `session.clearStorageData()` for that partition — mirrors the reference project's approach, which needs no custom cookie parsing.
 - **`electron.remote` avoidance**: `electron.remote` is deprecated (Electron 14+) and Obsidian's bundled Electron may not expose it without the `@electron/remote` polyfill, which Obsidian does not ship for plugins. Constraint and resolution are documented in `docs/risks.md` — MVP uses `require('electron').remote` **only if present at runtime** (guarded with a capability check), and if unavailable, surfaces a clear "your Obsidian/Electron version doesn't support in-app Amazon login" error rather than crashing or falling back to an insecure method. See risk R-08.
 - **Never implemented, by design**: any in-plugin form for email/password/OTP; any scripted auto-fill of Amazon's login form; any CAPTCHA bypass or automation fingerprint spoofing.
+- **Unload safety**: a sign-in in progress holds a pending timeout (up to `LOGIN_TIMEOUT_MS`). `ElectronAmazonAuthService.cancelPendingSignIn()` closes the window and clears that timeout; `main.ts`'s `onunload()` calls it unconditionally (a safe no-op when nothing is pending) so a stray timer can never fire after the plugin instance is gone. Added during the MVP acceptance audit - see `docs/mvp-acceptance-report.md`.
 
 ## 5. Amazon data retrieval
 
