@@ -10,27 +10,28 @@ export class SyncAlreadyInProgressError extends Error {
 }
 
 /**
- * Single entry point for manual sync. Owns the re-entrancy lock (spec:
- * "同時に複数の同期を実行しないでください") so callers (commands, ribbon
- * icon) never need to worry about concurrent syncs themselves. Delegates
- * the actual fetch/parse/render/save flow to KindleSyncService.
+ * Single entry point for manual sync. Owns only the re-entrancy lock
+ * (spec: "同時に複数の同期を実行しないでください") so callers (commands,
+ * ribbon icon) never need to worry about concurrent syncs themselves.
+ * The sync service is passed in per call (rather than fixed at
+ * construction) so the caller can build one from current settings
+ * (output folder, display options) on every run without the lock itself
+ * needing to know anything about that.
  */
 export class SyncCoordinator {
   private syncInProgress = false;
-
-  constructor(private readonly syncService: KindleSyncService) {}
 
   isSyncing(): boolean {
     return this.syncInProgress;
   }
 
-  async sync(region: AmazonRegion): Promise<SyncResult> {
+  async sync(region: AmazonRegion, syncService: KindleSyncService): Promise<SyncResult> {
     if (this.syncInProgress) {
       throw new SyncAlreadyInProgressError();
     }
     this.syncInProgress = true;
     try {
-      return await this.syncService.sync(region);
+      return await syncService.sync(region);
     } finally {
       this.syncInProgress = false;
     }
