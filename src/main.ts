@@ -1,6 +1,6 @@
 import { App, Notice, Plugin } from "obsidian";
 import { ElectronAmazonAuthService } from "./amazon/AmazonAuthService";
-import { getAmazonRegion } from "./amazon/AmazonRegion";
+import { getAmazonRegion, type AmazonRegion } from "./amazon/AmazonRegion";
 import {
   AmazonSessionExpiredError,
   ElectronAmazonSessionService,
@@ -110,17 +110,31 @@ export default class KindleBridgePlugin extends Plugin {
       return;
     }
     new LoginModal(this.app, region, () => {
-      void this.authService
-        .signIn(region)
-        .then((result) => {
-          if (result === "success") {
-            new Notice("Kindle Bridge: signed in to Amazon.");
-          } else {
-            new Notice(`Kindle Bridge: sign-in ${result}.`);
-          }
-        })
-        .catch((error: unknown) => this.notifyError("Sign-in failed", error));
+      void this.attemptSignIn(region);
     }).open();
+  }
+
+  /**
+   * `AmazonAuthService.signIn()` is not an `async` function and can
+   * throw synchronously (e.g. AmazonAuthUnsupportedError, before it
+   * ever returns a Promise) rather than only rejecting. Calling it as
+   * `this.authService.signIn(region).then(...).catch(...)` would never
+   * attach the `.catch()` for that synchronous case, silently dropping
+   * the error with no Notice shown - this wraps the call in a proper
+   * try/catch (via `await` inside an async function) so both synchronous
+   * throws and asynchronous rejections are handled the same way.
+   */
+  private async attemptSignIn(region: AmazonRegion): Promise<void> {
+    try {
+      const result = await this.authService.signIn(region);
+      if (result === "success") {
+        new Notice("Kindle Bridge: signed in to Amazon.");
+      } else {
+        new Notice(`Kindle Bridge: sign-in ${result}.`);
+      }
+    } catch (error) {
+      this.notifyError("Sign-in failed", error);
+    }
   }
 
   private async runSignOut(): Promise<void> {
