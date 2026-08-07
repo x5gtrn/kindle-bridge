@@ -2,7 +2,7 @@
 
 Sync Kindle highlights and memos from your Amazon account into per-book Markdown notes in your Obsidian vault.
 
-**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory, and the sign-in/session/fetch code (which drives a separate Chrome/Edge/Chromium/Brave process via the Chrome DevTools Protocol - see [`docs/architecture.md`](docs/architecture.md) §4) has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - run [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) before relying on it, and see the note in [`docs/risks.md`](docs/risks.md) R-05.
+**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory. Sign-in (a separate Chrome/Edge/Chromium/Brave process driven via the Chrome DevTools Protocol - see [`docs/architecture.md`](docs/architecture.md) §4) has been **confirmed working end-to-end against a real Amazon account** as of 2026-08-07. Live testing that same day also found and fixed two real bugs in the sync path itself - an unbounded wait that could hang a sync indefinitely, and annotation-parsing selectors that no longer matched Amazon's current page at all (see [`docs/risks.md`](docs/risks.md) R-02, R-05) - both fixed, but full end-to-end note creation against a real account is still pending final re-confirmation. Run [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) before relying on this for your own data.
 
 ## What this is
 
@@ -24,6 +24,7 @@ The following are **intentionally out of scope** for this milestone and planned 
 - Only Japan and Global/United States Amazon regions (a region registry makes adding more low-effort later, but no other regions ship in this milestone).
 - No advanced cancellation UI beyond preventing overlapping syncs.
 - Only the first page of a book's highlights/memos is fetched - very heavily annotated books beyond Amazon's per-page limit won't sync everything (see `docs/risks.md` R-17).
+- No per-annotation page number or creation date in generated notes - confirmed 2026-08-07 that Amazon's current notebook page doesn't expose either anywhere in the page HTML (see `docs/risks.md` R-10). Highlight/memo text and location are unaffected.
 - Not submitted to the Community Plugins directory yet.
 - **Desktop only.** This plugin relies on launching a separate browser process and does not work on Obsidian Mobile (iOS/Android).
 - **Requires an installed Chrome, Edge, Chromium, or Brave browser** on the machine running Obsidian - sign-in, session checks, and page fetches all launch one of these as a separate process. If none is found, these actions fail with a clear error instead of silently doing nothing.
