@@ -1,10 +1,12 @@
 import type { Logger } from "../utils/logger";
 import { retryAsync } from "../utils/retry";
+import { withTimeout } from "../utils/timeout";
 import { AmazonAuthUnsupportedError } from "./AmazonAuthTypes";
 import { AmazonSessionExpiredError } from "./AmazonSessionService";
 import type { AmazonRegion } from "./AmazonRegion";
 import { BrowserNotFoundError } from "./cdp/browserExecutable";
 import { CdpBrowser } from "./cdp/CdpBrowser";
+import { safeUrlOrigin } from "./urlSafety";
 
 /**
  * Fetches rendered HTML from Amazon's notebook page. The only module
@@ -41,6 +43,7 @@ const MAX_ATTEMPTS = 3;
 const BASE_RETRY_DELAY_MS = 1000;
 const SIGN_IN_URL_MARKER = "/ap/signin";
 const RATE_LIMIT_HTTP_STATUS = 429;
+const PAGE_LOAD_TIMEOUT_MS = 30 * 1000;
 
 export class CdpKindleReaderClient implements KindleReaderClient {
   private lastRequestAt = 0;
@@ -80,6 +83,7 @@ export class CdpKindleReaderClient implements KindleReaderClient {
   }
 
   private async loadAndExtractHtml(url: string, region: AmazonRegion): Promise<string> {
+    this.logger.debug("Fetching Amazon page", { origin: safeUrlOrigin(url) });
     let browser: CdpBrowser;
     try {
       browser = await CdpBrowser.launch({ userDataDir: this.getProfileDir(), headless: true });
@@ -100,7 +104,11 @@ export class CdpKindleReaderClient implements KindleReaderClient {
 
       const loaded = page.waitForLoad();
       await page.navigate(url);
-      await loaded;
+      await withTimeout(
+        loaded,
+        PAGE_LOAD_TIMEOUT_MS,
+        "Timed out waiting for the Amazon page to finish loading.",
+      );
 
       if (httpStatus === RATE_LIMIT_HTTP_STATUS) {
         throw new HttpTooManyRequestsError();
@@ -111,7 +119,9 @@ export class CdpKindleReaderClient implements KindleReaderClient {
         throw new AmazonSessionExpiredError();
       }
 
-      return await page.getHtml();
+      const html = await page.getHtml();
+      this.logger.debug("Fetched Amazon page", { origin: safeUrlOrigin(finalUrl), bytes: html.length });
+      return html;
     } catch (error) {
       if (error instanceof HttpTooManyRequestsError || error instanceof AmazonSessionExpiredError) {
         throw error;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Logger } from "../utils/logger";
 import { AmazonAuthUnsupportedError } from "./AmazonAuthTypes";
 import { getAmazonRegion } from "./AmazonRegion";
 import { CdpAmazonSessionService } from "./AmazonSessionService";
@@ -35,10 +36,17 @@ function fakeBrowser(page: CdpPage) {
 
 const region = getAmazonRegion("jp");
 
+function buildService(): CdpAmazonSessionService {
+  return new CdpAmazonSessionService(
+    () => "/tmp/kindle-bridge-test-profile",
+    new Logger({ level: "error" }),
+  );
+}
+
 describe("CdpAmazonSessionService", () => {
   it("throws AmazonAuthUnsupportedError instead of crashing when no browser is found", async () => {
     vi.mocked(CdpBrowser.launch).mockRejectedValueOnce(new BrowserNotFoundError());
-    const service = new CdpAmazonSessionService(() => "/tmp/kindle-bridge-test-profile");
+    const service = buildService();
     await expect(service.isSessionValid(region)).rejects.toThrow(AmazonAuthUnsupportedError);
   });
 
@@ -46,7 +54,7 @@ describe("CdpAmazonSessionService", () => {
     const browser = fakeBrowser(fakePage("https://read.amazon.co.jp/notebook"));
     vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
 
-    const service = new CdpAmazonSessionService(() => "/tmp/kindle-bridge-test-profile");
+    const service = buildService();
     await expect(service.isSessionValid(region)).resolves.toBe(true);
     expect(browser.close).toHaveBeenCalled();
   });
@@ -57,7 +65,7 @@ describe("CdpAmazonSessionService", () => {
     );
     vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
 
-    const service = new CdpAmazonSessionService(() => "/tmp/kindle-bridge-test-profile");
+    const service = buildService();
     await expect(service.isSessionValid(region)).resolves.toBe(false);
   });
 
@@ -65,7 +73,7 @@ describe("CdpAmazonSessionService", () => {
     const browser = fakeBrowser(fakePage("https://www.amazon.co.jp/some/other/page"));
     vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
 
-    const service = new CdpAmazonSessionService(() => "/tmp/kindle-bridge-test-profile");
+    const service = buildService();
     await expect(service.isSessionValid(region)).resolves.toBe(false);
   });
 
@@ -75,8 +83,29 @@ describe("CdpAmazonSessionService", () => {
     const browser = fakeBrowser(page);
     vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
 
-    const service = new CdpAmazonSessionService(() => "/tmp/kindle-bridge-test-profile");
+    const service = buildService();
     await expect(service.isSessionValid(region)).resolves.toBe(false);
     expect(browser.close).toHaveBeenCalled();
+  });
+
+  it("returns false (rather than hanging forever) if the page never fires a load event", async () => {
+    vi.useFakeTimers();
+    try {
+      const page = fakePage("https://read.amazon.co.jp/notebook");
+      // Simulates Page.loadEventFired never arriving - waitForLoad()'s
+      // real implementation would never resolve in that case either.
+      vi.mocked(page.waitForLoad).mockReturnValue(new Promise(() => undefined));
+      const browser = fakeBrowser(page);
+      vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
+
+      const service = buildService();
+      const result = service.isSessionValid(region);
+      await vi.advanceTimersByTimeAsync(30 * 1000);
+
+      await expect(result).resolves.toBe(false);
+      expect(browser.close).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

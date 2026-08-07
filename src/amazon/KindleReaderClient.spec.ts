@@ -98,4 +98,24 @@ describe("CdpKindleReaderClient", () => {
     // MAX_ATTEMPTS = 3, one browser launch per attempt.
     expect(CdpBrowser.launch).toHaveBeenCalledTimes(3);
   }, 10000);
+
+  it("times out (rather than hanging forever) when the page never fires a load event, retrying up to the bound", async () => {
+    vi.useFakeTimers();
+    try {
+      // Simulates Page.loadEventFired never arriving - waitForLoad()'s
+      // real implementation would never resolve in that case either.
+      const page = fakePage({ waitForLoad: vi.fn().mockReturnValue(new Promise(() => undefined)) });
+      const browser = fakeBrowser(page);
+      vi.mocked(CdpBrowser.launch).mockResolvedValue(browser as unknown as CdpBrowser);
+
+      const result = buildClient().fetchBookListHtml(region);
+      const assertion = expect(result).rejects.toThrow(TransientNetworkError);
+      await vi.advanceTimersByTimeAsync(120_000);
+      await assertion;
+      // MAX_ATTEMPTS = 3, one browser launch per attempt.
+      expect(CdpBrowser.launch).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 10000);
 });

@@ -37,7 +37,10 @@ export default class KindleBridgePlugin extends Plugin {
     () => this.getProfileDir(),
     this.logger,
   );
-  private readonly sessionService = new CdpAmazonSessionService(() => this.getProfileDir());
+  private readonly sessionService = new CdpAmazonSessionService(
+    () => this.getProfileDir(),
+    this.logger,
+  );
   private readonly readerClient = new CdpKindleReaderClient(
     () => this.getProfileDir(),
     this.logger,

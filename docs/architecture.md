@@ -106,12 +106,16 @@ This is the third approach tried for sign-in, not the first - see `docs/risks.md
 
 ## 5. Amazon data retrieval
 
-`KindleReaderClient` (in `src/amazon/`) is the only module allowed to talk to Amazon. It uses the same hidden, off-screen `BrowserWindow` + `session` partition approach as the login flow (rendering is required because the notebook page is client-rendered) to fetch:
+`KindleReaderClient` (in `src/amazon/`) is the only module allowed to talk to Amazon. It uses the same headless CDP-driven browser process approach as the login flow (§4) - rendering is required because the notebook page is client-rendered - to fetch:
 
 - **Book list**: GET the region's `notebookUrl`, extract each book's rendered HTML, hand off to `KindleBookParser.parseBookList(html): KindleBook[]` (pure function).
 - **Per-book annotations**: GET `notebookUrl?asin=<asin>...`, extract rendered HTML, hand off to `KindleAnnotationParser.parseAnnotations(html, bookId): KindleAnnotation[]` (pure function).
 
 **Request discipline** (per spec): concurrency capped at 1–2 in-flight book fetches (`p-limit`-style helper in `src/utils/retry.ts` or a tiny hand-rolled queue — no new heavy dependency), a fixed minimum delay between requests, retry only on transient network errors (timeout, connection reset) with a small bounded retry count and exponential backoff, and an immediate hard-stop (no retry) on HTTP 429. No user-agent spoofing beyond what Electron's default Chromium UA already presents, no CAPTCHA-solving.
+
+**Page-load timeout**: both `KindleReaderClient` and `AmazonSessionService` wrap their `page.waitForLoad()` wait in `utils/timeout.ts`'s `withTimeout()` (30s). This was added after live testing: with no bound, a page that never fires `Page.loadEventFired` (for any reason - a hung subresource, an unexpected redirect) left the wait, and therefore the whole sync, hanging forever - and since `SyncCoordinator`'s re-entrancy lock only clears when the in-flight sync's promise settles, that meant every subsequent "Sync now" failed with `SyncAlreadyInProgressError` until Obsidian was restarted. A stuck fetch now surfaces as a `TransientNetworkError` (retried up to `MAX_ATTEMPTS`) or a `false` session-check result instead.
+
+**Progress logging**: `KindleSyncService`, `AmazonSessionService`, and `KindleReaderClient` all log at `info`/`debug` level throughout a sync (session check start/result, book list fetch, per-book "Syncing book N/M", per-page fetch, sync summary) via the shared `Logger` - visible in Obsidian's Developer Console by default (`info` and above) so a run's progress, or where it stalled, is visible without needing to enable the "debug logging" setting.
 
 **Parser resilience contract**: every parser function asserts basic structural expectations (e.g. "book list container exists", "at least the expected top-level fields are present") and throws a typed `KindleParseError` with a message that surfaces as "Amazon's page structure may have changed" — never silently returns empty/undefined data that looks like "the user has 0 books."
 
@@ -194,6 +198,7 @@ src/
     hash.ts
     logger.ts
     retry.ts
+    timeout.ts                    # withTimeout() - bounds otherwise-unbounded CDP waits
   tests/
     fixtures/                     # anonymized HTML fixtures (Phase 2)
     ...*.spec.ts

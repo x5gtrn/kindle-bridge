@@ -46,6 +46,7 @@ export class AmazonKindleSyncService implements KindleSyncService {
   constructor(private readonly deps: AmazonKindleSyncServiceDeps) {}
 
   async sync(region: AmazonRegion): Promise<SyncResult> {
+    this.deps.logger.info("Sync started", { region: region.id });
     const result = emptySyncResult();
 
     const sessionValid = await this.deps.sessionService.isSessionValid(region);
@@ -55,15 +56,24 @@ export class AmazonKindleSyncService implements KindleSyncService {
 
     const books = await this.fetchBookList(region);
     result.booksFound = books.length;
+    this.deps.logger.info(`Found ${books.length} book(s)`);
 
-    for (const book of books) {
+    for (const [index, book] of books.entries()) {
+      this.deps.logger.info(`Syncing book ${index + 1}/${books.length}: "${book.title}"`);
       await this.syncOneBook(book, region, result);
     }
 
+    this.deps.logger.info("Sync finished", {
+      notesCreated: result.notesCreated,
+      notesUpdated: result.notesUpdated,
+      skipped: result.skipped,
+      errors: result.errors,
+    });
     return result;
   }
 
   private async fetchBookList(region: AmazonRegion): Promise<KindleBook[]> {
+    this.deps.logger.info("Fetching Kindle book list...");
     try {
       const html = await this.deps.readerClient.fetchBookListHtml(region);
       return parseBookList(html, region);
