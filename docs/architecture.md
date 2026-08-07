@@ -102,7 +102,7 @@ This is the third approach tried for sign-in, not the first - see `docs/risks.md
 - **Never implemented, by design**: any in-plugin form for email/password/OTP; any scripted auto-fill of Amazon's login form; any CAPTCHA bypass or automation fingerprint spoofing; any browser download/installation (only already-installed browsers are used).
 - **Unload safety**: `CdpAmazonAuthService.cancelPendingSignIn()` closes the active sign-in browser process, if any; `main.ts`'s `onunload()` calls it unconditionally (a safe no-op when nothing is pending) so nothing outlives the plugin instance.
 - **Testability**: unlike the `<webview>`-based design (which needed a dynamic `import()` workaround since it depended on Obsidian's `Modal`), `amazon/cdp/` has no Obsidian dependency at all, so `AmazonAuthService.ts`/`AmazonSessionService.ts`/`KindleReaderClient.ts` are fully unit-testable under Vitest by mocking `CdpBrowser.launch` (`vi.mock`) - actually spawning a real browser process and completing a real Amazon login remains untestable by automation and is verified manually (`docs/manual-test-checklist.md` §3.1).
-- **Not yet confirmed to work end-to-end** against a real Amazon account - see `docs/risks.md` R-05 for the status of manual verification.
+- **Confirmed working end-to-end** against a real Amazon account (2026-08-07) - sign-in, session check, book list, per-book annotations, and note creation all verified live; see `docs/risks.md` R-05 for the full verification trail (including two real bugs found and fixed along the way).
 
 ## 5. Amazon data retrieval
 

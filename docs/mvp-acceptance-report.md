@@ -50,13 +50,29 @@ up from 132; typecheck/lint/build all clean; bundling into the required single `
 verified safe, unlike an earlier `playwright-core` spike which was proven **not**
 bundlable and was rejected for that reason).
 
-**This is a new implementation, not yet live-verified.** Everything in the original
-"Blocking Issues" section below describes the *previous* (`remote.BrowserWindow`-based)
-implementation and is no longer an accurate description of the current code - it's left
-below as a historical record of what was tried, per this project's practice of not
-rewriting history in dated reports. The next required step is the same kind of live
-manual testing that found the original blocking issue: rebuild and run through
-`docs/manual-test-checklist.md` §3.1 against a real Obsidian install and Amazon account.
+Everything in the original "Blocking Issues" section below describes the *previous*
+(`remote.BrowserWindow`-based) implementation and is no longer an accurate description
+of the current code - it's left below as a historical record of what was tried, per
+this project's practice of not rewriting history in dated reports.
+
+## Post-audit update (2026-08-07, live testing confirmed working end-to-end)
+
+The CDP-based implementation above was then live-tested against a real Obsidian
+install and a real Amazon account, per `docs/manual-test-checklist.md` §3.1. Three
+more real defects were found and fixed along the way (see `docs/risks.md` R-02 and
+R-05 for the full trail): `CdpBrowser.launch()` leaking a process on a post-spawn
+failure, the DOM `WebSocket` being blocked by Obsidian's renderer CSP (fixed with a
+hand-rolled `net`-based client), an unbounded page-load wait that could hang a sync
+indefinitely, and `KindleAnnotationParser`'s selectors having gone stale against
+Amazon's current markup (fixed by inspecting the real DOM directly, with the user
+sharing only redacted tag/class/id structure, never highlight/memo content).
+
+After all of the above, the user confirmed: sign-in completes, `Sync now` finds the
+real book list, fetches real highlights/memos per book, and creates the corresponding
+notes in the configured output folder. **This is the first confirmed, working
+end-to-end run of the full Phase 0-3 MVP against a live account.** Not yet exercised:
+the Global region specifically (testing so far has been against a Japan account),
+MFA/CAPTCHA during sign-in, very large libraries, and HTTP 429 handling.
 
 ## Summary
 
@@ -316,9 +332,22 @@ before trusting this plugin with a real Amazon account, run:
 
 ## Recommendation
 
-**NOT READY FOR MANUAL ACCEPTANCE** *(status as of 2026-08-06 audit + 2026-08-07 live
-testing, both against the now-superseded `remote.BrowserWindow` implementation; see the
-"Post-audit update (2026-08-07, CDP migration)" section above for what changed since)*
+**READY FOR MANUAL ACCEPTANCE** *(revised 2026-08-07; confirmed working end-to-end
+against a real Amazon account the same day - see "Post-audit update (2026-08-07, live
+testing confirmed working end-to-end)" above. The "NOT READY" status below described
+the now-superseded `remote.BrowserWindow` implementation and is kept as a historical
+record, not the current status.)*
+
+Sign-in, session check, book list, per-book highlight/memo fetching, and note creation
+have all been verified against a real account, with every real defect found along the
+way (see the update sections above and `docs/risks.md` R-02/R-05) fixed and covered by
+new automated tests. This doesn't mean testing is exhaustive - the Global region, MFA/
+CAPTCHA, very large libraries, and HTTP 429 handling haven't specifically been
+exercised live yet - but the core MVP flow this report originally blocked on now works.
+
+---
+
+The section below is kept for historical context only; see above for the current status.
 
 The original audit found no code-level blocking defects and recommended proceeding to
 manual testing. That manual testing was carried out and found the sign-in flow does
