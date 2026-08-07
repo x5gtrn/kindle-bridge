@@ -6,7 +6,10 @@ import { KindleParseError } from "./KindleParseError";
 import { parseAmazonDate } from "./parseAmazonDate";
 
 const ANNOTATIONS_CONTAINER_SELECTOR = "#kp-notebook-annotations";
-const ANNOTATION_SELECTOR = ".kp-notebook-annotation";
+/** Exported so KindleReaderClient can wait for at least one annotation
+ * to actually render before snapshotting the page - see the
+ * `waitForSelector` doc comment on CdpPage for why that's necessary. */
+export const ANNOTATION_SELECTOR = ".kp-notebook-annotation";
 
 /**
  * Pure function: HTML string + owning book id in, KindleAnnotation[]

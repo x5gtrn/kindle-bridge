@@ -6,6 +6,7 @@ import { AmazonSessionExpiredError } from "./AmazonSessionService";
 import type { AmazonRegion } from "./AmazonRegion";
 import { BrowserNotFoundError } from "./cdp/browserExecutable";
 import { CdpBrowser } from "./cdp/CdpBrowser";
+import { ANNOTATION_SELECTOR } from "./KindleAnnotationParser";
 import { safeUrlOrigin } from "./urlSafety";
 
 /**
@@ -44,6 +45,7 @@ const BASE_RETRY_DELAY_MS = 1000;
 const SIGN_IN_URL_MARKER = "/ap/signin";
 const RATE_LIMIT_HTTP_STATUS = 429;
 const PAGE_LOAD_TIMEOUT_MS = 30 * 1000;
+const ANNOTATIONS_RENDER_TIMEOUT_MS = 8 * 1000;
 
 export class CdpKindleReaderClient implements KindleReaderClient {
   private lastRequestAt = 0;
@@ -62,12 +64,22 @@ export class CdpKindleReaderClient implements KindleReaderClient {
     // paginates heavily-annotated books beyond a per-page limit, which
     // this client does not yet follow - see docs/risks.md.
     const url = `${region.notebookUrl}?asin=${encodeURIComponent(asin)}&contentLimitState=`;
-    return this.fetchRenderedHtml(url, region);
+    // Unlike the book list, a book's highlights/notes are fetched and
+    // rendered by the page's own JavaScript *after* the `load` event
+    // (selecting a book via `?asin=` doesn't itself block page load) -
+    // see the CdpPage.waitForSelector doc comment. Waiting for the first
+    // annotation to actually appear avoids snapshotting an empty
+    // container and treating every book as having zero highlights.
+    return this.fetchRenderedHtml(url, region, ANNOTATION_SELECTOR);
   }
 
-  private async fetchRenderedHtml(url: string, region: AmazonRegion): Promise<string> {
+  private async fetchRenderedHtml(
+    url: string,
+    region: AmazonRegion,
+    waitForSelector?: string,
+  ): Promise<string> {
     await this.waitForRequestSlot();
-    return retryAsync(() => this.loadAndExtractHtml(url, region), {
+    return retryAsync(() => this.loadAndExtractHtml(url, region, waitForSelector), {
       maxAttempts: MAX_ATTEMPTS,
       baseDelayMs: BASE_RETRY_DELAY_MS,
       isRetryable: (error) => error instanceof TransientNetworkError,
@@ -82,7 +94,11 @@ export class CdpKindleReaderClient implements KindleReaderClient {
     this.lastRequestAt = Date.now();
   }
 
-  private async loadAndExtractHtml(url: string, region: AmazonRegion): Promise<string> {
+  private async loadAndExtractHtml(
+    url: string,
+    region: AmazonRegion,
+    waitForSelector?: string,
+  ): Promise<string> {
     this.logger.debug("Fetching Amazon page", { origin: safeUrlOrigin(url) });
     let browser: CdpBrowser;
     try {
@@ -117,6 +133,16 @@ export class CdpKindleReaderClient implements KindleReaderClient {
       const finalUrl = await page.getCurrentUrl();
       if (finalUrl.includes(SIGN_IN_URL_MARKER) || !finalUrl.startsWith(region.kindleReaderUrl)) {
         throw new AmazonSessionExpiredError();
+      }
+
+      if (waitForSelector) {
+        const rendered = await page.waitForSelector(waitForSelector, ANNOTATIONS_RENDER_TIMEOUT_MS);
+        this.logger.debug(
+          rendered
+            ? "Annotations rendered"
+            : "No annotations rendered within timeout (book may genuinely have none)",
+          { origin: safeUrlOrigin(finalUrl) },
+        );
       }
 
       const html = await page.getHtml();

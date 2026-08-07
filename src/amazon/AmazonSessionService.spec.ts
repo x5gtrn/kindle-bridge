@@ -22,6 +22,7 @@ function fakePage(finalUrl: string): CdpPage {
     onFrameNavigated: vi.fn(),
     onDocumentResponse: vi.fn(),
     waitForLoad: vi.fn().mockResolvedValue(undefined),
+    waitForSelector: vi.fn().mockResolvedValue(true),
   };
 }
 

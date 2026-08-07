@@ -4,6 +4,7 @@ import { getAmazonRegion } from "./AmazonRegion";
 import { AmazonSessionExpiredError } from "./AmazonSessionService";
 import { BrowserNotFoundError } from "./cdp/browserExecutable";
 import { CdpBrowser, type CdpPage } from "./cdp/CdpBrowser";
+import { ANNOTATION_SELECTOR } from "./KindleAnnotationParser";
 import { CdpKindleReaderClient, HttpTooManyRequestsError, TransientNetworkError } from "./KindleReaderClient";
 import { Logger } from "../utils/logger";
 
@@ -23,6 +24,7 @@ function fakePage(overrides: Partial<CdpPage> = {}): CdpPage {
     onFrameNavigated: vi.fn(),
     onDocumentResponse: vi.fn(),
     waitForLoad: vi.fn().mockResolvedValue(undefined),
+    waitForSelector: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -98,6 +100,26 @@ describe("CdpKindleReaderClient", () => {
     // MAX_ATTEMPTS = 3, one browser launch per attempt.
     expect(CdpBrowser.launch).toHaveBeenCalledTimes(3);
   }, 10000);
+
+  it("waits for an annotation to render before reading HTML when fetching a book's annotations", async () => {
+    const page = fakePage();
+    const browser = fakeBrowser(page);
+    vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
+
+    await buildClient().fetchBookAnnotationsHtml(region, "B000TEST01");
+
+    expect(page.waitForSelector).toHaveBeenCalledWith(ANNOTATION_SELECTOR, expect.any(Number));
+  });
+
+  it("does not wait for the annotation selector when fetching only the book list", async () => {
+    const page = fakePage();
+    const browser = fakeBrowser(page);
+    vi.mocked(CdpBrowser.launch).mockResolvedValueOnce(browser as unknown as CdpBrowser);
+
+    await buildClient().fetchBookListHtml(region);
+
+    expect(page.waitForSelector).not.toHaveBeenCalled();
+  });
 
   it("times out (rather than hanging forever) when the page never fires a load event, retrying up to the bound", async () => {
     vi.useFakeTimers();

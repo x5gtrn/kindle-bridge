@@ -4,6 +4,11 @@ import { CdpConnection } from "./CdpConnection";
 
 const DEVTOOLS_WS_PATTERN = /DevTools listening on (ws:\/\/\S+)/;
 const LAUNCH_TIMEOUT_MS = 20 * 1000;
+const SELECTOR_POLL_INTERVAL_MS = 300;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** Pure parsing logic split out from waitForDevToolsUrl() below so it's
  * unit-testable without spawning a real browser process. Chrome/Edge/
@@ -36,6 +41,16 @@ export interface CdpPage {
    * (not sub-resources like scripts/images) - e.g. to detect a 429
    * rate-limit response, which no other CDP signal surfaces as clearly. */
   onDocumentResponse: (listener: (status: number, url: string) => void) => void;
+  /** Polls (every `POLL_INTERVAL_MS`) for `document.querySelector(selector)`
+   * to return a match, up to `timeoutMs`. Needed because `waitForLoad()`
+   * only reflects the DOM `load` event - some of Amazon's own page
+   * content (e.g. a book's highlights/notes) is fetched and rendered by
+   * the page's own JavaScript *after* that event, so a caller that reads
+   * `getHtml()` right after `waitForLoad()` alone can observe an empty
+   * container that fills in moments later. Resolves `true` as soon as
+   * found, or `false` on timeout (the caller decides whether that means
+   * "genuinely empty" or "failed to render" - this never throws). */
+  waitForSelector: (selector: string, timeoutMs: number) => Promise<boolean>;
 }
 
 interface RuntimeEvaluateResult {
@@ -170,6 +185,24 @@ export class CdpBrowser {
           };
           connection.on("Page.loadEventFired", onLoad);
         }),
+      waitForSelector: async (selector: string, timeoutMs: number) => {
+        const deadline = Date.now() + timeoutMs;
+        const expression = `document.querySelector(${JSON.stringify(selector)}) !== null`;
+        for (;;) {
+          const evaluated = await connection.send<{ result: { value: boolean } }>(
+            "Runtime.evaluate",
+            { expression, returnByValue: true },
+            sessionId,
+          );
+          if (evaluated.result.value) {
+            return true;
+          }
+          if (Date.now() >= deadline) {
+            return false;
+          }
+          await sleep(SELECTOR_POLL_INTERVAL_MS);
+        }
+      },
       onDocumentResponse: (listener: (status: number, url: string) => void) => {
         connection.on("Network.responseReceived", (params) => {
           const typed = params as {
