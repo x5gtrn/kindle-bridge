@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { CdpConnection, CdpProtocolError } from "./CdpConnection";
+import { CdpConnection, CdpProtocolError, type WebSocketLike } from "./CdpConnection";
 
 type Listener = (event: { data: string }) => void;
 
@@ -25,7 +25,7 @@ function fakeSocket() {
         messageListeners.delete(listener);
       }
     },
-  } as unknown as WebSocket;
+  } as unknown as WebSocketLike;
 
   return {
     socket,

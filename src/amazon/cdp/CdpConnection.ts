@@ -1,3 +1,5 @@
+import { NodeWebSocket } from "./NodeWebSocket";
+
 /**
  * Minimal Chrome DevTools Protocol client: a thin JSON-RPC-over-
  * WebSocket layer, just enough for the Target/Page/Runtime domains
@@ -7,7 +9,21 @@
  * specifically was ruled out (its own runtime file-path assumptions
  * don't survive esbuild bundling into a single main.js, which
  * Obsidian Community Plugins require).
+ *
+ * Connects via NodeWebSocket (see that file), not the browser
+ * `WebSocket` global - Obsidian's renderer process CSP blocks the DOM
+ * WebSocket from reaching the local Chrome DevTools port, confirmed by
+ * live testing (see docs/architecture.md §4).
  */
+
+/** The minimal subset of the WebSocket surface this file depends on -
+ * satisfied by both NodeWebSocket and (for tests) hand-built fakes. */
+export interface WebSocketLike {
+  addEventListener(type: string, listener: (event: unknown) => void, options?: { once?: boolean }): void;
+  removeEventListener(type: string, listener: (event: unknown) => void): void;
+  send(data: string): void;
+  close(): void;
+}
 
 interface PendingRequest {
   method: string;
@@ -36,21 +52,14 @@ export class CdpProtocolError extends Error {
   }
 }
 
-export class CdpUnsupportedError extends Error {
-  constructor() {
-    super("WebSocket is not available in this Obsidian/Electron/Node runtime.");
-    this.name = "CdpUnsupportedError";
-  }
-}
-
 export class CdpConnection {
   private nextId = 1;
   private readonly pending = new Map<number, PendingRequest>();
   private readonly eventListeners = new Map<string, Set<(params: unknown) => void>>();
 
-  private constructor(private readonly socket: WebSocket) {
-    this.socket.addEventListener("message", (event: MessageEvent<unknown>) => {
-      this.handleMessage(String(event.data));
+  private constructor(private readonly socket: WebSocketLike) {
+    this.socket.addEventListener("message", (event: unknown) => {
+      this.handleMessage(String((event as { data?: unknown }).data));
     });
   }
 
@@ -58,16 +67,13 @@ export class CdpConnection {
    * object directly, skipping the "wait for open" handshake connect()
    * performs - lets the JSON-RPC framing logic in this class be
    * unit-tested without a real network connection. */
-  static fromSocket(socket: WebSocket): CdpConnection {
+  static fromSocket(socket: WebSocketLike): CdpConnection {
     return new CdpConnection(socket);
   }
 
   static connect(webSocketUrl: string): Promise<CdpConnection> {
-    if (typeof WebSocket === "undefined") {
-      return Promise.reject(new CdpUnsupportedError());
-    }
     return new Promise((resolve, reject) => {
-      const socket = new WebSocket(webSocketUrl);
+      const socket = new NodeWebSocket(webSocketUrl);
       const onOpen = () => {
         socket.removeEventListener("error", onError);
         resolve(new CdpConnection(socket));
