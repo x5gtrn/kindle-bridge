@@ -91,8 +91,8 @@ export class CdpBrowser {
       "about:blank",
     ];
 
-    const childProcess = spawn(executablePath, args, { stdio: ["ignore", "ignore", "pipe"] });
-    const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess);
+    const childProcess = spawn(executablePath, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess, executablePath);
     const connection = await CdpConnection.connect(webSocketDebuggerUrl);
     return new CdpBrowser(childProcess, connection);
   };
@@ -189,25 +189,47 @@ export class CdpBrowser {
   }
 }
 
-function waitForDevToolsUrl(childProcess: ChildProcess): Promise<string> {
+/** Caps how much of the child process's stdout/stderr is echoed back in
+ * a failure message - just enough to diagnose why launch failed (e.g.
+ * Chrome's own "Opening in existing browser session." message when it
+ * hands off to an already-running instance instead of starting a new,
+ * controllable one) without dumping unbounded output into a Notice. */
+const DIAGNOSTIC_OUTPUT_LIMIT = 2000;
+
+function waitForDevToolsUrl(childProcess: ChildProcess, executablePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    let buffer = "";
+    let stderrBuffer = "";
+    let combinedBuffer = "";
 
     const cleanup = () => {
       clearTimeout(timeoutHandle);
-      childProcess.stderr?.off("data", onData);
+      childProcess.stdout?.off("data", onStdoutData);
+      childProcess.stderr?.off("data", onStderrData);
       childProcess.off("error", onError);
       childProcess.off("exit", onExit);
     };
 
+    const describeFailure = (reason: string): Error => {
+      const output = combinedBuffer.trim().slice(0, DIAGNOSTIC_OUTPUT_LIMIT);
+      return new Error(
+        `${reason} (launched "${executablePath}")` +
+          (output.length > 0 ? ` - output: ${output}` : " - no output was produced."),
+      );
+    };
+
     const timeoutHandle = setTimeout(() => {
       cleanup();
-      reject(new Error("Timed out waiting for the browser to start."));
+      reject(describeFailure("Timed out waiting for the browser to start."));
     }, LAUNCH_TIMEOUT_MS);
 
-    const onData = (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const url = extractDevToolsUrl(buffer);
+    const onStdoutData = (chunk: Buffer) => {
+      combinedBuffer += chunk.toString();
+    };
+    const onStderrData = (chunk: Buffer) => {
+      const text = chunk.toString();
+      stderrBuffer += text;
+      combinedBuffer += text;
+      const url = extractDevToolsUrl(stderrBuffer);
       if (url) {
         cleanup();
         resolve(url);
@@ -219,10 +241,11 @@ function waitForDevToolsUrl(childProcess: ChildProcess): Promise<string> {
     };
     const onExit = (code: number | null) => {
       cleanup();
-      reject(new Error(`Browser exited before becoming ready (code ${code ?? "unknown"}).`));
+      reject(describeFailure(`Browser exited before becoming ready (code ${code ?? "unknown"}).`));
     };
 
-    childProcess.stderr?.on("data", onData);
+    childProcess.stdout?.on("data", onStdoutData);
+    childProcess.stderr?.on("data", onStderrData);
     childProcess.on("error", onError);
     childProcess.on("exit", onExit);
   });
