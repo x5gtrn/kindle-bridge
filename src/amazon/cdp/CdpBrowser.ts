@@ -92,9 +92,20 @@ export class CdpBrowser {
     ];
 
     const childProcess = spawn(executablePath, args, { stdio: ["ignore", "pipe", "pipe"] });
-    const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess, executablePath);
-    const connection = await CdpConnection.connect(webSocketDebuggerUrl);
-    return new CdpBrowser(childProcess, connection);
+    try {
+      const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess, executablePath);
+      const connection = await CdpConnection.connect(webSocketDebuggerUrl);
+      return new CdpBrowser(childProcess, connection);
+    } catch (error) {
+      // Chrome has already started by this point (waitForDevToolsUrl only
+      // resolves once it has) - if connecting to it then fails, the
+      // process would otherwise leak silently, permanently holding this
+      // profile directory's singleton lock and causing every later launch
+      // attempt to report "Opening in existing browser session." instead
+      // of starting a fresh, controllable process.
+      childProcess.kill();
+      throw error;
+    }
   };
 
   /** Fires if the browser process exits on its own (e.g. the user
