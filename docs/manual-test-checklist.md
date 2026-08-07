@@ -1,10 +1,10 @@
 # Manual Test Checklist — Obsidian Kindle Bridge MVP
 
-This checklist covers everything the automated test suite (Vitest, 131 tests as of this
-writing) **cannot** verify: real Obsidian plugin loading, real Electron `BrowserWindow`
-behavior, real Amazon login/MFA/CAPTCHA, real network fetches, and real Markdown
-rendering inside Obsidian's editor. See `docs/mvp-acceptance-report.md` for why each of
-these is unverified by automation.
+This checklist covers everything the automated test suite (Vitest, 156 tests as of this
+writing) **cannot** verify: real Obsidian plugin loading, a real separate Chrome/Edge/
+Chromium/Brave browser process driven via CDP, real Amazon login/MFA/CAPTCHA, real
+network fetches, and real Markdown rendering inside Obsidian's editor. See
+`docs/mvp-acceptance-report.md` for why each of these is unverified by automation.
 
 Fill in **Actual result**, **Status**, and **Notes** for every item as you test. Do not
 mark anything PASS based on assumption — if you didn't run the step, mark it `BLOCKED`
@@ -15,7 +15,8 @@ with a note on why.
 - A real Obsidian desktop install (this plugin is desktop-only - `isDesktopOnly: true`).
 - A dedicated **test vault** (not your main vault), so you can freely inspect/delete generated notes and `.obsidian/plugins` files.
 - Node.js and npm (to build the plugin - see `README.md` Development section).
-- A real Amazon account with Kindle purchases you have already highlighted/annotated (Japan and/or Global), for meaningful sync testing. Consider using a secondary/test Amazon account rather than your primary one, since this plugin's Amazon-facing code has not been live-verified before this checklist is run (see `docs/risks.md` R-08).
+- A real Amazon account with Kindle purchases you have already highlighted/annotated (Japan and/or Global), for meaningful sync testing. Consider using a secondary/test Amazon account rather than your primary one, since this plugin's Amazon-facing code has not been live-verified before this checklist is run (see `docs/risks.md` R-05).
+- An installed Chrome, Edge, Chromium, or Brave browser - sign-in, session checks, and page fetches all launch one of these as a separate process (see `docs/risks.md` R-05, R-08).
 - Ability to open Obsidian's Developer Console (`Cmd+Option+I` on macOS, `Ctrl+Shift+I` on Windows/Linux) to check for errors and confirm no sensitive data is logged.
 
 ---
@@ -124,10 +125,10 @@ Notes:
 
 **Steps:** Run command "Kindle Bridge: Sign in to Amazon" (or the equivalent shown in the Command Palette - the displayed name will be prefixed with the plugin's full name, "Obsidian Kindle Bridge"). Confirm the dialog, then complete Amazon's real login page in the window that opens.
 
-Expected result: A confirmation modal appears first (no email/password/OTP fields in it). After confirming, a separate window shows Amazon's actual sign-in page. After successfully signing in, the window closes itself and a "signed in" Notice appears in Obsidian.
+Expected result: A confirmation modal appears first (no email/password/OTP fields in it), followed by a Notice that a browser window is opening. A real, separate Chrome/Edge/Chromium/Brave window then opens showing Amazon's actual sign-in page. After successfully signing in and landing on the Kindle notebook/reader page, the window closes itself and a "signed in" Notice appears in Obsidian.
 Actual result:
 Status: PASS / FAIL / BLOCKED
-Notes: _(Record here if the login window behaves unexpectedly - e.g. gets kicked to your system's default browser instead of completing inline. This exact failure mode was observed in the reference project we studied during Phase 0 - see `docs/risks.md` R-05/R-08 - and has not been reproduced or ruled out for this plugin.)_
+Notes: _(This is the first live test of the CDP-based sign-in implemented 2026-08-07, replacing two earlier approaches - a separate `remote.BrowserWindow` and an embedded `<webview>` - that both failed for reasons outside this plugin's control; see `docs/risks.md` R-05 for the full history. Record here: which browser was found/launched, whether the window opened and was usable, and whether success detection fired correctly once you reached the notebook page. If no supported browser is installed, expect a clear `AmazonAuthUnsupportedError` Notice instead of a crash or silent failure.)_
 
 ### 3.2 MFA
 

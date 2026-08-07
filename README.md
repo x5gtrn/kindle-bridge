@@ -2,11 +2,11 @@
 
 Sync Kindle highlights and memos from your Amazon account into per-book Markdown notes in your Obsidian vault.
 
-**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory, and the Electron-`BrowserWindow`-based sign-in/session/fetch code has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - run [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) before relying on it, and see the note in [`docs/risks.md`](docs/risks.md) R-08.
+**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory, and the sign-in/session/fetch code (which drives a separate Chrome/Edge/Chromium/Brave process via the Chrome DevTools Protocol - see [`docs/architecture.md`](docs/architecture.md) §4) has not yet been exercised end-to-end against a real Amazon account inside a running Obsidian install - run [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) before relying on it, and see the note in [`docs/risks.md`](docs/risks.md) R-05.
 
 ## What this is
 
-- Signs in to Amazon using Amazon's **own official login page**, rendered in a separate window. This plugin never asks for, sees, or stores your Amazon email, password, or one-time code.
+- Signs in to Amazon using Amazon's **own official login page**, rendered in a real, separate browser window (Chrome, Edge, Chromium, or Brave - whichever is installed on your machine). This plugin never asks for, sees, or stores your Amazon email, password, or one-time code.
 - Reads the Kindle "notebook" pages you can already see yourself when signed in to Amazon in a browser, for **Japan** and **Global/United States** accounts.
 - Generates one Markdown note per book, with highlights and memos in a clearly delimited, plugin-managed section - everything else in the note is yours to edit freely and is never overwritten.
 - Manual sync only, triggered from the Command Palette or a ribbon icon.
@@ -25,7 +25,8 @@ The following are **intentionally out of scope** for this milestone and planned 
 - No advanced cancellation UI beyond preventing overlapping syncs.
 - Only the first page of a book's highlights/memos is fetched - very heavily annotated books beyond Amazon's per-page limit won't sync everything (see `docs/risks.md` R-17).
 - Not submitted to the Community Plugins directory yet.
-- **Desktop only.** This plugin relies on Electron APIs available in Obsidian's desktop app and does not work on Obsidian Mobile (iOS/Android).
+- **Desktop only.** This plugin relies on launching a separate browser process and does not work on Obsidian Mobile (iOS/Android).
+- **Requires an installed Chrome, Edge, Chromium, or Brave browser** on the machine running Obsidian - sign-in, session checks, and page fetches all launch one of these as a separate process. If none is found, these actions fail with a clear error instead of silently doing nothing.
 
 ## Development
 
@@ -52,7 +53,7 @@ To try the plugin in a vault, symlink or copy this folder (after `npm run build`
 
 ## Acknowledgements
 
-The design of Amazon sign-in (Amazon's own login page rendered in a persistent Electron session, so no credentials ever touch this plugin) and of protecting user-edited note content across re-syncs was informed by studying [hadynz/obsidian-kindle-plugin](https://github.com/hadynz/obsidian-kindle-plugin) (MIT licensed). No code from that project is reused in Obsidian Kindle Bridge; this is an independent implementation with its own architecture, tests, and license. Thank you to its author and contributors for publishing a working reference.
+The general idea of Amazon sign-in (Amazon's own login page, so no credentials ever touch this plugin) and of protecting user-edited note content across re-syncs was informed by studying [hadynz/obsidian-kindle-plugin](https://github.com/hadynz/obsidian-kindle-plugin) (MIT licensed). No code from that project is reused in Obsidian Kindle Bridge; this is an independent implementation with its own architecture (including its own browser-automation approach - see `docs/risks.md` R-05), tests, and license. Thank you to its author and contributors for publishing a working reference.
 
 ## License
 

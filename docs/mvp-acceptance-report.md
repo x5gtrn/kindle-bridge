@@ -29,6 +29,35 @@ every other feature in this plugin - does not currently work on at least Obsidia
 1.13.4, for reasons external to this plugin's code. See the updated Recommendation
 section for what this means for Phase 4 planning.
 
+## Post-audit update (2026-08-07, CDP migration)
+
+Following the finding above, a design change was made (with explicit user sign-off at
+each step, per this project's working agreement) that replaces the sign-in/session/
+fetch mechanism entirely rather than attempting further fixes to the embedded-window
+approach. `electron.remote.BrowserWindow` and, later, an embedded `<webview>` were each
+tried and ruled out (see `docs/risks.md` R-05 for the full trail - both failed for
+reasons outside this plugin's own code). The implementation now drives a genuinely
+separate Chrome/Edge/Chromium/Brave process via a hand-rolled Chrome DevTools Protocol
+(CDP) client (`src/amazon/cdp/`), which has no relationship to Obsidian's own window/
+navigation policies at all - see `docs/architecture.md` §4 for the design.
+
+This resolves several items in this report as originally written: the
+`electronRemote.ts` file and its `eslint-disable` (Repository Audit, above) no longer
+exist; `AmazonAuthService`/`AmazonSessionService`/`KindleReaderClient` no longer depend
+on `electron.remote` at all (superseding R-08 as originally framed - see `docs/risks.md`).
+All three services were rewritten and re-tested (156 automated tests across 22 files,
+up from 132; typecheck/lint/build all clean; bundling into the required single `main.js`
+verified safe, unlike an earlier `playwright-core` spike which was proven **not**
+bundlable and was rejected for that reason).
+
+**This is a new implementation, not yet live-verified.** Everything in the original
+"Blocking Issues" section below describes the *previous* (`remote.BrowserWindow`-based)
+implementation and is no longer an accurate description of the current code - it's left
+below as a historical record of what was tried, per this project's practice of not
+rewriting history in dated reports. The next required step is the same kind of live
+manual testing that found the original blocking issue: rebuild and run through
+`docs/manual-test-checklist.md` §3.1 against a real Obsidian install and Amazon account.
+
 ## Summary
 
 The Phase 0-3 codebase is clean, builds/typechecks/lints/tests successfully from a
@@ -287,9 +316,9 @@ before trusting this plugin with a real Amazon account, run:
 
 ## Recommendation
 
-**NOT READY FOR MANUAL ACCEPTANCE** *(revised 2026-08-07; was "READY FOR MANUAL
-ACCEPTANCE" in the original 2026-08-06 audit, before live testing uncovered the
-blocking issue above)*
+**NOT READY FOR MANUAL ACCEPTANCE** *(status as of 2026-08-06 audit + 2026-08-07 live
+testing, both against the now-superseded `remote.BrowserWindow` implementation; see the
+"Post-audit update (2026-08-07, CDP migration)" section above for what changed since)*
 
 The original audit found no code-level blocking defects and recommended proceeding to
 manual testing. That manual testing was carried out and found the sign-in flow does
@@ -307,13 +336,20 @@ BrowserWindow flow all work correctly up to the point Amazon's own page hands of
 elsewhere. The issue is specifically Amazon/Obsidian-version-specific navigation
 behavior this plugin's code cannot safely override.
 
-**Suggested path forward, none implemented without further discussion**:
+**Path taken**: option 3 below (a fundamentally different sign-in mechanism) was
+pursued, with design sign-off from the user at each step (rejecting an embedded
+`<webview>` continuation, rejecting a Playwright-based rewrite once proven unbundlable,
+approving the hand-rolled CDP approach that ships in this codebase now). See the
+"Post-audit update (2026-08-07, CDP migration)" section above. **This new mechanism
+still needs the same kind of live manual verification** that uncovered the original
+blocking issue before this report's recommendation can be revised to READY.
+
+**Original suggested path forward (2026-08-07), for reference**:
 1. Monitor the reference project's issue #337 for any upstream resolution or workaround
-   discovered by that (larger) user base.
+   discovered by that (larger) user base. *(Superseded - not pursued once a working
+   alternative was implemented.)*
 2. Test against other Obsidian versions if available, to determine whether this is
-   specific to 1.13.x or broader - useful for deciding whether to pin `minAppVersion`
-   below the affected range, if an unaffected version can be identified.
+   specific to 1.13.x or broader. *(Superseded - moot once the `remote.BrowserWindow`
+   dependency was removed entirely.)*
 3. If neither resolves it, a fundamentally different sign-in mechanism would need
-   design discussion before implementation - this is explicitly flagged as a decision
-   requiring sign-off, not something to implement unilaterally, per this project's
-   working agreement on large design changes.
+   design discussion before implementation. *(This is the path taken - see above.)*
