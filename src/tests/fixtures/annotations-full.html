@@ -1,56 +1,101 @@
 <!--
   Anonymized fixture approximating an Amazon Kindle notebook
-  highlights/memos page for a single book (Global region, English
-  dates). Not captured from a real account. Covers, in order:
-    ann-1: highlight only, no memo/location/page/date
-    ann-2: highlight + memo + location + page + created date
-    ann-3: memo only (empty highlight text)
-    ann-4: location present, no page/date
-    ann-5: page present, no location/date
-    ann-6: created date present, no location/page
-    ann-7: location + page present, no date
-    ann-8: whitespace-only highlight and no memo - must be filtered out
-  See docs/risks.md R-02 for caveats on selector accuracy.
+  highlights/memos page for a single book (Global region). Not
+  captured from a real account, but the DOM shape (container, hidden
+  pagination inputs, per-row `id` + generic `a-row a-spacing-base`
+  classes, #kp-annotation-location, #highlight, #note) was confirmed
+  against a real, live account on 2026-08-07 - see docs/risks.md R-02.
+  Amazon does not expose a page number or a per-annotation created
+  date anywhere in this markup (confirmed the same day), so neither is
+  covered here. Covers, in order:
+    ann-1: highlight only, no memo/location
+    ann-2: highlight + memo + location
+    ann-3: memo only (freestanding note, no underlying highlight)
+    ann-4: whitespace-only highlight and no memo - must be filtered out
 -->
 <!DOCTYPE html>
 <html lang="en">
   <body>
     <div id="kp-notebook-annotations">
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-1">
-        <div class="kp-notebook-highlight-text">Programs must be written for people to read, and only incidentally for machines to execute.</div>
+      <input type="hidden" class="kp-notebook-content-limit-state" value="" />
+      <input type="hidden" class="kp-notebook-annotations-next-page-start" value="" />
+      <div id="ann-1" class="a-row a-spacing-base">
+        <div class="a-column a-span10 kp-notebook-row-separator">
+          <div class="a-row">
+            <div class="a-column a-span8">
+              <span id="annotationHighlightHeader" class="a-size-small a-color-secondary kp-notebook-selectable kp-notebook-metadata">Yellow highlight</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row a-spacing-top-medium">
+          <div class="a-column a-span10 a-spacing-small kp-notebook-print-override">
+            <div id="highlight-ann-1" class="a-row kp-notebook-highlight kp-notebook-selectable kp-notebook-highlight-yellow">
+              <span id="highlight" class="a-size-base-plus a-color-base">Programs must be written for people to read, and only incidentally for machines to execute.</span>
+            </div>
+            <div id="note-ann-1" class="a-row a-spacing-top-base kp-notebook-note aok-hidden kp-notebook-selectable">
+              <span id="note-label" class="a-size-small a-color-secondary"><span class="a-letter-space"></span></span>
+              <span id="note" class="a-size-base-plus a-color-base"></span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-2">
-        <div class="kp-notebook-highlight-text">The best design is the simplest one that works.</div>
-        <div class="kp-notebook-note-text">Re-read this before the next design review.</div>
-        <input type="hidden" class="kp-annotation-location" value="1240" />
-        <input type="hidden" class="kp-annotation-page" value="42" />
-        <input type="hidden" class="kp-annotation-created" value="August 1, 2026" />
+      <div id="ann-2" class="a-row a-spacing-base">
+        <div class="a-column a-span10 kp-notebook-row-separator">
+          <div class="a-row">
+            <input type="hidden" value="1240" id="kp-annotation-location" />
+            <div class="a-column a-span8">
+              <span id="annotationHighlightHeader" class="a-size-small a-color-secondary kp-notebook-selectable kp-notebook-metadata">Yellow highlight | Location: 1,240</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row a-spacing-top-medium">
+          <div class="a-column a-span10 a-spacing-small kp-notebook-print-override">
+            <div id="highlight-ann-2" class="a-row kp-notebook-highlight kp-notebook-selectable kp-notebook-highlight-yellow">
+              <span id="highlight" class="a-size-base-plus a-color-base">The best design is the simplest one that works.</span>
+            </div>
+            <div id="note-ann-2" class="a-row a-spacing-top-base kp-notebook-note kp-notebook-selectable">
+              <span id="note-label" class="a-size-small a-color-secondary"><span class="a-letter-space"></span></span>
+              <span id="note" class="a-size-base-plus a-color-base">Re-read this before the next design review.</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-3">
-        <div class="kp-notebook-highlight-text"></div>
-        <div class="kp-notebook-note-text">A note without a highlighted passage.</div>
+      <div id="ann-3" class="a-row a-spacing-base">
+        <div class="a-column a-span10 kp-notebook-row-separator">
+          <div class="a-row">
+            <div class="a-column a-span8">
+              <span id="annotationNoteHeader" class="a-size-small a-color-secondary kp-notebook-selectable kp-notebook-metadata">Note</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row a-spacing-top-medium">
+          <div class="a-column a-span10 a-spacing-small kp-notebook-print-override">
+            <div id="note-ann-3" class="a-row a-spacing-top-base kp-notebook-note kp-notebook-selectable">
+              <span id="note-label" class="a-size-small a-color-secondary"><span class="a-letter-space"></span></span>
+              <span id="note" class="a-size-base-plus a-color-base">A note without a highlighted passage.</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-4">
-        <div class="kp-notebook-highlight-text">Location-only example highlight text.</div>
-        <input type="hidden" class="kp-annotation-location" value="5001" />
+      <div id="ann-4" class="a-row a-spacing-base">
+        <div class="a-column a-span10 kp-notebook-row-separator">
+          <div class="a-row">
+            <input type="hidden" value="" id="kp-annotation-location" />
+          </div>
+        </div>
+        <div class="a-row a-spacing-top-medium">
+          <div class="a-column a-span10 a-spacing-small kp-notebook-print-override">
+            <div id="highlight-ann-4" class="a-row kp-notebook-highlight kp-notebook-selectable kp-notebook-highlight-yellow">
+              <span id="highlight" class="a-size-base-plus a-color-base">   </span>
+            </div>
+            <div id="note-ann-4" class="a-row a-spacing-top-base kp-notebook-note aok-hidden kp-notebook-selectable">
+              <span id="note-label" class="a-size-small a-color-secondary"><span class="a-letter-space"></span></span>
+              <span id="note" class="a-size-base-plus a-color-base"></span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-5">
-        <div class="kp-notebook-highlight-text">Page-only example highlight text.</div>
-        <input type="hidden" class="kp-annotation-page" value="88" />
-      </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-6">
-        <div class="kp-notebook-highlight-text">Dated example highlight text.</div>
-        <input type="hidden" class="kp-annotation-created" value="August 2, 2026" />
-      </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-7">
-        <div class="kp-notebook-highlight-text">Highlight with location and page but no date.</div>
-        <input type="hidden" class="kp-annotation-location" value="6100" />
-        <input type="hidden" class="kp-annotation-page" value="120" />
-      </div>
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-8">
-        <div class="kp-notebook-highlight-text">   </div>
-        <input type="hidden" class="kp-annotation-location" value="" />
-      </div>
+      <div id="empty-annotations-pane" class="a-row aok-hidden"></div>
     </div>
   </body>
 </html>

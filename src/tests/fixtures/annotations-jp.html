@@ -1,16 +1,39 @@
 <!--
-  Anonymized fixture for a Japan-region annotations page, to exercise
-  the JP date format (YYYY年M月D日) in KindleAnnotationParser.
+  Anonymized fixture for a Japan-region annotations page, using the
+  real DOM shape confirmed 2026-08-07 (see annotations-full.html and
+  docs/risks.md R-02). No per-annotation date is available in this
+  markup, so JP date-format parsing is covered separately by
+  parseAmazonDate.spec.ts and KindleBookParser.spec.ts (book-level
+  "last annotated" date), not here.
 -->
 <!DOCTYPE html>
 <html lang="ja">
   <body>
     <div id="kp-notebook-annotations">
-      <div class="a-row a-spacing-base kp-notebook-annotation" data-annotation-id="ann-jp-1">
-        <div class="kp-notebook-highlight-text">人は見た目が9割。</div>
-        <input type="hidden" class="kp-annotation-location" value="300" />
-        <input type="hidden" class="kp-annotation-created" value="2026年7月20日" />
+      <input type="hidden" class="kp-notebook-content-limit-state" value="" />
+      <input type="hidden" class="kp-notebook-annotations-next-page-start" value="" />
+      <div id="ann-jp-1" class="a-row a-spacing-base">
+        <div class="a-column a-span10 kp-notebook-row-separator">
+          <div class="a-row">
+            <input type="hidden" value="300" id="kp-annotation-location" />
+            <div class="a-column a-span8">
+              <span id="annotationHighlightHeader" class="a-size-small a-color-secondary kp-notebook-selectable kp-notebook-metadata">黄色のハイライト | 位置No. 300</span>
+            </div>
+          </div>
+        </div>
+        <div class="a-row a-spacing-top-medium">
+          <div class="a-column a-span10 a-spacing-small kp-notebook-print-override">
+            <div id="highlight-ann-jp-1" class="a-row kp-notebook-highlight kp-notebook-selectable kp-notebook-highlight-yellow">
+              <span id="highlight" class="a-size-base-plus a-color-base">人は見た目が9割。</span>
+            </div>
+            <div id="note-ann-jp-1" class="a-row a-spacing-top-base kp-notebook-note aok-hidden kp-notebook-selectable">
+              <span id="note-label" class="a-size-small a-color-secondary"><span class="a-letter-space"></span></span>
+              <span id="note" class="a-size-base-plus a-color-base"></span>
+            </div>
+          </div>
+        </div>
       </div>
+      <div id="empty-annotations-pane" class="a-row aok-hidden"></div>
     </div>
   </body>
 </html>

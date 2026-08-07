@@ -30,29 +30,25 @@ describe("parseAnnotations", () => {
     const html = loadFixture("annotations-full.html");
     const annotations = byAnnotationIndex(html);
 
-    it("parses a highlight with no memo/location/page/date (ann-1)", () => {
+    it("parses a highlight with no memo/location (ann-1)", () => {
       const ann = annotations[0];
       expect(ann).toBeDefined();
       expect(ann?.type).toBe("highlight");
       expect(ann?.text).toContain("Programs must be written");
       expect(ann?.memo).toBeUndefined();
       expect(ann?.location).toBeUndefined();
-      expect(ann?.page).toBeUndefined();
-      expect(ann?.createdAt).toBeUndefined();
     });
 
-    it("associates a highlight with its memo, location, page, and created date (ann-2)", () => {
+    it("associates a highlight with its memo and location (ann-2)", () => {
       const ann = annotations[1];
       expect(ann).toBeDefined();
       expect(ann?.type).toBe("highlight");
       expect(ann?.text).toContain("The best design is the simplest");
       expect(ann?.memo).toBe("Re-read this before the next design review.");
       expect(ann?.location).toBe("1240");
-      expect(ann?.page).toBe("42");
-      expect(ann?.createdAt).toBe("2026-08-01");
     });
 
-    it("parses a memo with no underlying highlight text as type memo (ann-3)", () => {
+    it("parses a freestanding memo (no underlying highlight) as type memo (ann-3)", () => {
       const ann = annotations[2];
       expect(ann).toBeDefined();
       expect(ann?.type).toBe("memo");
@@ -60,38 +56,17 @@ describe("parseAnnotations", () => {
       expect(ann?.memo).toBeUndefined();
     });
 
-    it("parses location without page/date (ann-4)", () => {
-      const ann = annotations[3];
-      expect(ann?.location).toBe("5001");
-      expect(ann?.page).toBeUndefined();
-      expect(ann?.createdAt).toBeUndefined();
-    });
-
-    it("parses page without location/date (ann-5)", () => {
-      const ann = annotations[4];
-      expect(ann?.page).toBe("88");
-      expect(ann?.location).toBeUndefined();
-      expect(ann?.createdAt).toBeUndefined();
-    });
-
-    it("parses created date without location/page (ann-6)", () => {
-      const ann = annotations[5];
-      expect(ann?.createdAt).toBe("2026-08-02");
-      expect(ann?.location).toBeUndefined();
-      expect(ann?.page).toBeUndefined();
-    });
-
-    it("parses location and page together without a date (ann-7)", () => {
-      const ann = annotations[6];
-      expect(ann?.location).toBe("6100");
-      expect(ann?.page).toBe("120");
-      expect(ann?.createdAt).toBeUndefined();
-    });
-
-    it("filters out a block with a whitespace-only highlight and no memo (ann-8)", () => {
-      expect(annotations).toHaveLength(7);
+    it("filters out a block with a whitespace-only highlight and no memo (ann-4)", () => {
+      expect(annotations).toHaveLength(3);
       const texts = annotations.map((a) => a.text);
       expect(texts.every((t) => t.trim().length > 0)).toBe(true);
+    });
+
+    it("never populates page or createdAt - Amazon's current markup exposes neither", () => {
+      for (const ann of annotations) {
+        expect(ann.page).toBeUndefined();
+        expect(ann.createdAt).toBeUndefined();
+      }
     });
 
     it("builds a Kindle Reader source URL for every annotation", () => {
@@ -106,13 +81,13 @@ describe("parseAnnotations", () => {
     });
   });
 
-  describe("Japan region date parsing", () => {
-    it("parses the YYYY年M月D日 created date format", () => {
+  describe("Japan region", () => {
+    it("parses Japanese highlight text and location", () => {
       const html = loadFixture("annotations-jp.html");
       const annotations = parseAnnotations(html, "book-jp-1", getAmazonRegion("jp"));
       expect(annotations).toHaveLength(1);
-      expect(annotations[0]?.createdAt).toBe("2026-07-20");
       expect(annotations[0]?.text).toBe("人は見た目が9割。");
+      expect(annotations[0]?.location).toBe("300");
     });
   });
 
@@ -132,7 +107,7 @@ describe("parseAnnotations", () => {
       expect(new Set(ids).size).toBe(ids.length);
     });
 
-    it("changes the content hash when the highlighted text changes, independent of location/page/date", () => {
+    it("changes the content hash when the highlighted text changes, independent of location", () => {
       const original = byAnnotationIndex(html)[0];
       const editedHtml = html.replace(
         "Programs must be written for people to read, and only incidentally for machines to execute.",
@@ -158,9 +133,13 @@ describe("parseAnnotations", () => {
     it("treats a present-but-whitespace-only memo element the same as no memo at all", () => {
       const html = `
         <div id="kp-notebook-annotations">
-          <div class="a-row a-spacing-base kp-notebook-annotation">
-            <div class="kp-notebook-highlight-text">A highlight with an empty note element.</div>
-            <div class="kp-notebook-note-text">   </div>
+          <div id="ann-1" class="a-row a-spacing-base">
+            <div id="highlight-ann-1" class="a-row kp-notebook-highlight">
+              <span id="highlight">A highlight with an empty note element.</span>
+            </div>
+            <div id="note-ann-1" class="a-row kp-notebook-note aok-hidden">
+              <span id="note">   </span>
+            </div>
           </div>
         </div>
       `;
@@ -170,21 +149,19 @@ describe("parseAnnotations", () => {
       expect(annotation?.memo).toBeUndefined();
     });
 
-    it("treats a present-but-empty location/page/created value the same as an absent attribute", () => {
+    it("treats a present-but-empty location value the same as an absent one", () => {
       const html = `
         <div id="kp-notebook-annotations">
-          <div class="a-row a-spacing-base kp-notebook-annotation">
-            <div class="kp-notebook-highlight-text">A highlight with blank metadata attributes.</div>
-            <input type="hidden" class="kp-annotation-location" value="" />
-            <input type="hidden" class="kp-annotation-page" value="   " />
-            <input type="hidden" class="kp-annotation-created" value="" />
+          <div id="ann-1" class="a-row a-spacing-base">
+            <input type="hidden" value="" id="kp-annotation-location" />
+            <div id="highlight-ann-1" class="a-row kp-notebook-highlight">
+              <span id="highlight">A highlight with a blank location attribute.</span>
+            </div>
           </div>
         </div>
       `;
       const [annotation] = parseAnnotations(html, "book-1", getAmazonRegion("global"));
       expect(annotation?.location).toBeUndefined();
-      expect(annotation?.page).toBeUndefined();
-      expect(annotation?.createdAt).toBeUndefined();
     });
   });
 });
