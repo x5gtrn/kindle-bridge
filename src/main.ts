@@ -1,11 +1,9 @@
-import { App, Notice, Plugin } from "obsidian";
-import { ElectronAmazonAuthService } from "./amazon/AmazonAuthService";
+import { join } from "node:path";
+import { App, FileSystemAdapter, Notice, Plugin } from "obsidian";
+import { CdpAmazonAuthService } from "./amazon/AmazonAuthService";
 import { getAmazonRegion, type AmazonRegion } from "./amazon/AmazonRegion";
-import {
-  AmazonSessionExpiredError,
-  ElectronAmazonSessionService,
-} from "./amazon/AmazonSessionService";
-import { ElectronKindleReaderClient } from "./amazon/KindleReaderClient";
+import { AmazonSessionExpiredError, CdpAmazonSessionService } from "./amazon/AmazonSessionService";
+import { CdpKindleReaderClient } from "./amazon/KindleReaderClient";
 import { BookNoteRepository } from "./markdown/BookNoteRepository";
 import {
   DEFAULT_SETTINGS,
@@ -35,9 +33,15 @@ export default class KindleBridgePlugin extends Plugin {
   settings: KindleBridgeSettings = DEFAULT_SETTINGS;
   logger = new Logger({ level: "info" });
 
-  private readonly authService = new ElectronAmazonAuthService(this.app, this.logger);
-  private readonly sessionService = new ElectronAmazonSessionService();
-  private readonly readerClient = new ElectronKindleReaderClient(this.logger);
+  private readonly authService = new CdpAmazonAuthService(
+    () => this.getProfileDir(),
+    this.logger,
+  );
+  private readonly sessionService = new CdpAmazonSessionService(() => this.getProfileDir());
+  private readonly readerClient = new CdpKindleReaderClient(
+    () => this.getProfileDir(),
+    this.logger,
+  );
   private readonly syncCoordinator = new SyncCoordinator();
 
   async onload(): Promise<void> {
@@ -80,10 +84,11 @@ export default class KindleBridgePlugin extends Plugin {
 
   onunload(): void {
     // A sign-in in progress has up to a 5-minute pending timeout
-    // (AmazonAuthService.LOGIN_TIMEOUT_MS); cancel it so it can't fire
-    // after this plugin instance is gone. Sync's per-request windows are
-    // all short-lived and self-close as soon as they resolve, so there's
-    // nothing else to release here.
+    // (AmazonAuthService's SIGN_IN_TIMEOUT_MS) and an open browser
+    // process; cancel it so neither outlives this plugin instance.
+    // Sync/session-check/fetch each launch a fresh, short-lived browser
+    // process per operation and close it when done, so there's nothing
+    // else to release here.
     this.authService.cancelPendingSignIn();
   }
 
@@ -99,6 +104,33 @@ export default class KindleBridgePlugin extends Plugin {
 
   private currentRegion() {
     return getAmazonRegion(this.settings.amazonRegion);
+  }
+
+  /**
+   * Absolute filesystem path to a persistent, plugin-owned browser
+   * profile directory, shared by AmazonAuthService, AmazonSessionService,
+   * and KindleReaderClient so a session established at sign-in is
+   * usable by the others - see docs/architecture.md §4. Computed lazily
+   * (not cached) so a missing FileSystemAdapter surfaces as a normal,
+   * caught error at the point of use rather than crashing plugin
+   * construction; this plugin is desktop-only (isDesktopOnly in
+   * manifest.json), so FileSystemAdapter should always be present in
+   * practice.
+   */
+  private getProfileDir(): string {
+    const adapter = this.app.vault.adapter;
+    if (!(adapter instanceof FileSystemAdapter)) {
+      throw new Error(
+        "Kindle Bridge requires desktop Obsidian (no file system adapter available).",
+      );
+    }
+    return join(
+      adapter.getBasePath(),
+      this.app.vault.configDir,
+      "plugins",
+      this.manifest.id,
+      "browser-profile",
+    );
   }
 
   private runSignIn(): void {
@@ -125,6 +157,9 @@ export default class KindleBridgePlugin extends Plugin {
    * throws and asynchronous rejections are handled the same way.
    */
   private async attemptSignIn(region: AmazonRegion): Promise<void> {
+    new Notice(
+      "Kindle Bridge: opening a browser window for Amazon sign-in. Complete sign-in there, then return to Obsidian.",
+    );
     try {
       const result = await this.authService.signIn(region);
       if (result === "success") {

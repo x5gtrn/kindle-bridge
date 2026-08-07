@@ -1,9 +1,10 @@
 import type { Logger } from "../utils/logger";
 import { retryAsync } from "../utils/retry";
-import { AmazonAuthUnsupportedError } from "./AmazonAuthService";
+import { AmazonAuthUnsupportedError } from "./AmazonAuthTypes";
 import { AmazonSessionExpiredError } from "./AmazonSessionService";
 import type { AmazonRegion } from "./AmazonRegion";
-import { SESSION_PARTITION, getElectronRemote, keepNavigationEmbedded } from "./electronRemote";
+import { BrowserNotFoundError } from "./cdp/browserExecutable";
+import { CdpBrowser } from "./cdp/CdpBrowser";
 
 /**
  * Fetches rendered HTML from Amazon's notebook page. The only module
@@ -41,10 +42,13 @@ const BASE_RETRY_DELAY_MS = 1000;
 const SIGN_IN_URL_MARKER = "/ap/signin";
 const RATE_LIMIT_HTTP_STATUS = 429;
 
-export class ElectronKindleReaderClient implements KindleReaderClient {
+export class CdpKindleReaderClient implements KindleReaderClient {
   private lastRequestAt = 0;
 
-  constructor(private readonly logger: Logger) {}
+  constructor(
+    private readonly getProfileDir: () => string,
+    private readonly logger: Logger,
+  ) {}
 
   fetchBookListHtml(region: AmazonRegion): Promise<string> {
     return this.fetchRenderedHtml(region.notebookUrl, region);
@@ -76,37 +80,38 @@ export class ElectronKindleReaderClient implements KindleReaderClient {
   }
 
   private async loadAndExtractHtml(url: string, region: AmazonRegion): Promise<string> {
-    const remote = getElectronRemote();
-    if (!remote) {
-      throw new AmazonAuthUnsupportedError();
+    let browser: CdpBrowser;
+    try {
+      browser = await CdpBrowser.launch({ userDataDir: this.getProfileDir(), headless: true });
+    } catch (error) {
+      if (error instanceof BrowserNotFoundError) {
+        throw new AmazonAuthUnsupportedError();
+      }
+      throw error;
     }
 
-    const win = new remote.BrowserWindow({
-      show: false,
-      webPreferences: { partition: SESSION_PARTITION },
-    });
-    keepNavigationEmbedded(win);
-
-    let httpResponseCode: number | undefined;
-    win.webContents.on("did-navigate", (_event, _url, responseCode) => {
-      if (typeof responseCode === "number") {
-        httpResponseCode = responseCode;
-      }
-    });
-
     try {
-      await win.loadURL(url);
+      const page = await browser.newPage();
 
-      if (httpResponseCode === RATE_LIMIT_HTTP_STATUS) {
+      let httpStatus: number | undefined;
+      page.onDocumentResponse((status) => {
+        httpStatus = status;
+      });
+
+      const loaded = page.waitForLoad();
+      await page.navigate(url);
+      await loaded;
+
+      if (httpStatus === RATE_LIMIT_HTTP_STATUS) {
         throw new HttpTooManyRequestsError();
       }
 
-      const finalUrl = win.webContents.getURL();
+      const finalUrl = await page.getCurrentUrl();
       if (finalUrl.includes(SIGN_IN_URL_MARKER) || !finalUrl.startsWith(region.kindleReaderUrl)) {
         throw new AmazonSessionExpiredError();
       }
 
-      return await win.webContents.executeJavaScript<string>("document.documentElement.outerHTML");
+      return await page.getHtml();
     } catch (error) {
       if (error instanceof HttpTooManyRequestsError || error instanceof AmazonSessionExpiredError) {
         throw error;
@@ -115,9 +120,7 @@ export class ElectronKindleReaderClient implements KindleReaderClient {
       this.logger.warn("Transient error fetching an Amazon page", { message });
       throw new TransientNetworkError(message);
     } finally {
-      if (!win.isDestroyed()) {
-        win.close();
-      }
+      browser.close();
     }
   }
 }
