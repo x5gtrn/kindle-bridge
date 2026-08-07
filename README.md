@@ -2,13 +2,14 @@
 
 Sync Kindle highlights and memos from your Amazon account into per-book Markdown notes in your Obsidian vault.
 
-**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)). Not yet published to the Obsidian Community Plugins directory. **Confirmed working end-to-end against a real Amazon account as of 2026-08-07**: sign-in (a separate Chrome/Edge/Chromium/Brave process driven via the Chrome DevTools Protocol - see [`docs/architecture.md`](docs/architecture.md) §4), session check, book list, per-book highlights/memos, and note creation in the vault have all been verified live. That round of live testing also found and fixed two real bugs along the way - an unbounded wait that could hang a sync indefinitely, and annotation-parsing selectors that no longer matched Amazon's current page at all (see [`docs/risks.md`](docs/risks.md) R-02, R-05). Still worth running [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) yourself before trusting it with your own vault, especially for scenarios not yet exercised (e.g. the Global region, MFA/CAPTCHA, very large libraries).
+**Status:** Phase 0-3 MVP implemented and self-audited (manual sync, real Amazon parsing, Vault persistence; see [`docs/mvp-acceptance-report.md`](docs/mvp-acceptance-report.md)), **confirmed working end-to-end against a real Amazon account as of 2026-08-07**: sign-in (a separate Chrome/Edge/Chromium/Brave process driven via the Chrome DevTools Protocol - see [`docs/architecture.md`](docs/architecture.md) §4), session check, book list, per-book highlights/memos, and note creation in the vault have all been verified live. Phase 4 has since started, with deletion/diff detection (`docs/risks.md` R-13) implemented the same day. Not yet published to the Obsidian Community Plugins directory. Still worth running [`docs/manual-test-checklist.md`](docs/manual-test-checklist.md) yourself before trusting it with your own vault, especially for scenarios not yet exercised live (e.g. the Global region, MFA/CAPTCHA, very large libraries, the new deletion-flagging behavior).
 
 ## What this is
 
 - Signs in to Amazon using Amazon's **own official login page**, rendered in a real, separate browser window (Chrome, Edge, Chromium, or Brave - whichever is installed on your machine). This plugin never asks for, sees, or stores your Amazon email, password, or one-time code.
 - Reads the Kindle "notebook" pages you can already see yourself when signed in to Amazon in a browser, for **Japan** and **Global/United States** accounts.
 - Generates one Markdown note per book, with highlights and memos in a clearly delimited, plugin-managed section - everything else in the note is yours to edit freely and is never overwritten.
+- Reflects deletions, non-destructively: a highlight/memo removed on Amazon's side disappears from the note on the next sync; a book removed from your Kindle library entirely gets a visible warning banner (its last-known highlights are kept, never deleted) that clears itself automatically if the book reappears.
 - Manual sync only, triggered from the Command Palette or a ribbon icon.
 
 This is an **unofficial, community project**, not affiliated with or endorsed by Amazon. It automates the same notebook pages a signed-in user can view in a browser; it does not use any private/reverse-engineered Amazon API, and it does not attempt to bypass CAPTCHA or Amazon's bot-detection. See [`docs/risks.md`](docs/risks.md) for details, including Amazon's own Conditions of Use.
@@ -17,8 +18,7 @@ This is an **unofficial, community project**, not affiliated with or endorsed by
 
 The following are **intentionally out of scope** for this milestone and planned for a later phase - see [`docs/mvp-scope.md`](docs/mvp-scope.md) for the full breakdown:
 
-- No detection/removal of highlights or memos deleted on Amazon's side.
-- No differential/incremental sync beyond regenerating the plugin-managed block.
+- No differential/incremental sync beyond regenerating the plugin-managed block (deletion detection is implemented - see "What this is" above - but there's no line-level diff view or change history).
 - No Daily Notes or Dataview integration.
 - No automatic sync on startup or on a schedule - sync is always manual.
 - Only Japan and Global/United States Amazon regions (a region registry makes adding more low-effort later, but no other regions ship in this milestone).

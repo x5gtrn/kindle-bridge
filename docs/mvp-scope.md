@@ -53,7 +53,7 @@ Leveled logging (`error`/`warn`/`info`/`debug`) that never emits passwords, cook
 
 ## Explicitly out of scope for this milestone (deferred to Phase 4+)
 
-- Detecting and removing highlights/memos that were deleted on Amazon's side.
+- ~~Detecting and removing highlights/memos that were deleted on Amazon's side.~~ **Implemented in Phase 4 (2026-08-07)** - see `docs/architecture.md` §7 and `docs/risks.md` R-13. Kept here, struck through, as a historical record of this milestone's original scope rather than rewritten.
 - Differential/incremental update logic beyond the simple "regenerate the generated block" approach (no line-level diffing, no per-annotation change detection beyond regenerating the whole block).
 - Daily Notes integration.
 - Dataview integration.

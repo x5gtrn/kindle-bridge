@@ -1,6 +1,6 @@
 # Manual Test Checklist — Obsidian Kindle Bridge MVP
 
-This checklist covers everything the automated test suite (Vitest, 156 tests as of this
+This checklist covers everything the automated test suite (Vitest, 176 tests as of this
 writing) **cannot** verify: real Obsidian plugin loading, a real separate Chrome/Edge/
 Chromium/Brave browser process driven via CDP, real Amazon login/MFA/CAPTCHA, real
 network fetches, and real Markdown rendering inside Obsidian's editor. See
@@ -235,9 +235,9 @@ Notes:
 
 ### 4.6 空データ (a book with zero annotations, if reachable)
 
-**Steps:** Hard to force via the UI since Amazon's notebook normally only lists annotated books. If you can identify or contrive such a case, sync it.
+**Steps:** Hard to force via the UI since Amazon's notebook normally only lists annotated books. If you can identify or contrive such a case, sync it - first when no note exists yet for that book, then again after deleting all its highlights/memos on Amazon when a note **does** already exist (e.g. sync it once with a highlight present, delete that highlight on Amazon, sync again).
 
-Expected result: Per our design, a book with zero parsed annotations is counted in `skipped`, and no note is created for it.
+Expected result: With no existing note, the book is counted in `skipped` and no note is created (unchanged from before Phase 4). With an existing note, the book is instead counted in `notesUpdated` and its generated block is replaced with a "_No highlights or memos found for this book on Amazon as of the last sync._" placeholder - not left showing the old, now-deleted content. See `docs/risks.md` R-13.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -265,6 +265,24 @@ Notes:
 **Steps:** Click the ribbon icon (or run "Sync now") twice in quick succession, before the first finishes.
 
 Expected result: The second attempt immediately shows a "a sync is already in progress" Notice and does not start a second concurrent sync.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.10 ライブラリから削除された本 (a book removed from the Kindle library) - Phase 4
+
+**Steps:** Sync normally so a book gets a note. Then either archive/remove that book from your Kindle library on Amazon, or (safer for testing) temporarily rename it in a way that changes its ASIN visibility - whatever reliably makes it absent from the next `fetchBookListHtml()` result. Sync again.
+
+Expected result: The book's existing note is **not** deleted and its highlights/memos are **not** removed - a warning banner (`> [!warning] This book no longer appears in your Kindle library`) is prepended inside the generated block, above the untouched existing content, and the note's frontmatter gains `kindle_bridge_missing_from_library: true`. The sync result modal shows a non-zero "Flagged as removed from library" count. Running sync again (book still missing) should **not** increase that count further (already flagged, not re-counted).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.11 削除フラグの自己修復 (missing-book flag self-heals on reappearance) - Phase 4
+
+**Steps:** Following on from 4.10, restore the book to your Kindle library (undo whatever made it disappear), then sync again.
+
+Expected result: The book gets a normal `upsert()` this time - the warning banner is gone, `kindle_bridge_missing_from_library` is back to `false` in frontmatter, and the generated block reflects the book's real current highlights/memos.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
