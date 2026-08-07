@@ -227,6 +227,19 @@ describe("renderBookNote", () => {
     const second = renderBookNote(book, [highlightOnly, memoOnly], options);
     expect(first).toEqual(second);
   });
+
+  it("renders a placeholder, not a blank block, when there are zero current annotations (docs/risks.md R-13)", () => {
+    const { generatedBlockBody, frontmatter } = renderBookNote(book, [], options);
+    expect(generatedBlockBody.trim().length).toBeGreaterThan(0);
+    expect(generatedBlockBody).toContain("No highlights or memos found");
+    expect(frontmatter.highlight_count).toBe(0);
+    expect(frontmatter.memo_count).toBe(0);
+  });
+
+  it("always explicitly resets kindle_bridge_missing_from_library to false on a normal render", () => {
+    const { frontmatter } = renderBookNote(book, [highlightOnly], options);
+    expect(frontmatter.kindle_bridge_missing_from_library).toBe(false);
+  });
 });
 
 function countOccurrences(haystack: string, needle: string): number {

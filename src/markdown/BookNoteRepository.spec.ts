@@ -324,4 +324,89 @@ describe("BookNoteRepository", () => {
     expect(savedPath).not.toMatch(/[\\:*?"<>|]/);
     expect(vault.files.get(savedPath ?? "")?.frontmatter.title).toBe(illegalTitleBook.title);
   });
+
+  describe("zero-annotation books (docs/risks.md R-13)", () => {
+    it("skips a book with no existing note and zero current annotations - no clutter note is created", async () => {
+      const repo = buildRepository(vault);
+      const outcome = await repo.upsert(book, [], renderOptions);
+
+      expect(outcome).toBe("skipped");
+      expect(vault.files.size).toBe(0);
+    });
+
+    it("clears an existing note's generated block to a placeholder when its annotations drop to zero", async () => {
+      const path = "Highlight and Memo/Books/Book Title.md";
+      vault.files.set(path, {
+        path,
+        content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\n${annotation.text}\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
+        frontmatter: { kindle_book_id: book.id },
+      });
+
+      const repo = buildRepository(vault);
+      const outcome = await repo.upsert(book, [], renderOptions);
+
+      expect(outcome).toBe("updated");
+      const updated = vault.files.get(path);
+      expect(updated?.content).not.toContain(annotation.text);
+      expect(updated?.content).toContain("No highlights or memos found");
+    });
+  });
+
+  describe("flagRemovedBooks (docs/risks.md R-13)", () => {
+    const otherBook: KindleBook = { ...book, id: "B0OTHERBOOK", asin: "B0OTHERBOOK" };
+
+    it("flags a managed note whose book id is missing from the current set, without touching its content", async () => {
+      const repo = buildRepository(vault);
+      await repo.upsert(book, [annotation], renderOptions);
+      const path = "Highlight and Memo/Books/Book Title.md";
+
+      const flaggedCount = await repo.flagRemovedBooks(new Set([otherBook.id]));
+
+      expect(flaggedCount).toBe(1);
+      const flagged = vault.files.get(path);
+      expect(flagged?.frontmatter.kindle_bridge_missing_from_library).toBe(true);
+      expect(flagged?.content).toContain("no longer appears in your Kindle library");
+      expect(flagged?.content).toContain(annotation.text);
+    });
+
+    it("does not re-flag (or re-count) a note that's already flagged", async () => {
+      const repo = buildRepository(vault);
+      await repo.upsert(book, [annotation], renderOptions);
+      await repo.flagRemovedBooks(new Set([otherBook.id]));
+
+      const secondCount = await repo.flagRemovedBooks(new Set([otherBook.id]));
+
+      expect(secondCount).toBe(0);
+      const path = "Highlight and Memo/Books/Book Title.md";
+      const content = vault.files.get(path)?.content ?? "";
+      // The banner text appears exactly once, not duplicated.
+      expect(content.split("no longer appears in your Kindle library")).toHaveLength(2);
+    });
+
+    it("self-heals: a normal upsert for a previously-flagged book clears the flag and the banner", async () => {
+      const repo = buildRepository(vault);
+      await repo.upsert(book, [annotation], renderOptions);
+      await repo.flagRemovedBooks(new Set([otherBook.id]));
+
+      await repo.upsert(book, [annotation], renderOptions);
+
+      const path = "Highlight and Memo/Books/Book Title.md";
+      const healed = vault.files.get(path);
+      expect(healed?.frontmatter.kindle_bridge_missing_from_library).toBe(false);
+      expect(healed?.content).not.toContain("no longer appears in your Kindle library");
+    });
+
+    it("does not flag a note whose book id is still in the current set", async () => {
+      const repo = buildRepository(vault);
+      await repo.upsert(book, [annotation], renderOptions);
+
+      const flaggedCount = await repo.flagRemovedBooks(new Set([book.id]));
+
+      expect(flaggedCount).toBe(0);
+      const path = "Highlight and Memo/Books/Book Title.md";
+      // A normal upsert() already sets this explicitly to false (see
+      // BookNoteRenderer.spec.ts) - it was never true to begin with.
+      expect(vault.files.get(path)?.frontmatter.kindle_bridge_missing_from_library).toBe(false);
+    });
+  });
 });

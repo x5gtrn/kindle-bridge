@@ -23,6 +23,7 @@ export class SyncProgressModal extends Modal {
       ["Highlights fetched", this.result.highlightsFetched],
       ["Memos fetched", this.result.memosFetched],
       ["Skipped", this.result.skipped],
+      ["Flagged as removed from library", this.result.notesFlaggedRemoved],
       ["Errors", this.result.errors],
     ];
     for (const [label, value] of rows) {

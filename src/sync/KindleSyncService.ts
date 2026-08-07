@@ -63,10 +63,23 @@ export class AmazonKindleSyncService implements KindleSyncService {
       await this.syncOneBook(book, region, result);
     }
 
+    // Only ever runs against a *successful* book list fetch (a failure
+    // above throws before this point) and only when Amazon actually
+    // returned books - guards against mass-flagging every managed note
+    // on the rare/unconfirmed case of a transient empty book-list
+    // response. See docs/risks.md R-13.
+    if (books.length > 0) {
+      const currentBookIds = new Set(books.map((book) => book.id));
+      result.notesFlaggedRemoved = await this.deps.bookNoteRepository.flagRemovedBooks(
+        currentBookIds,
+      );
+    }
+
     this.deps.logger.info("Sync finished", {
       notesCreated: result.notesCreated,
       notesUpdated: result.notesUpdated,
       skipped: result.skipped,
+      notesFlaggedRemoved: result.notesFlaggedRemoved,
       errors: result.errors,
     });
     return result;
@@ -95,19 +108,16 @@ export class AmazonKindleSyncService implements KindleSyncService {
       result.highlightsFetched += annotations.filter((a) => a.type === "highlight").length;
       result.memosFetched += countMemos(annotations);
 
-      if (annotations.length === 0) {
-        result.skipped += 1;
-        return;
-      }
-
       const outcome = await this.deps.bookNoteRepository.upsert(book, annotations, {
         displayCoverImage: this.deps.getDisplayCoverImage(),
         syncedAt: nowIsoTimestamp(),
       });
       if (outcome === "created") {
         result.notesCreated += 1;
-      } else {
+      } else if (outcome === "updated") {
         result.notesUpdated += 1;
+      } else {
+        result.skipped += 1;
       }
     } catch (error) {
       if (isContinuationBreakingError(error)) {

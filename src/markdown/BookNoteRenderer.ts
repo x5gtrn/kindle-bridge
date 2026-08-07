@@ -7,6 +7,22 @@ import type { KindleBook } from "../models/KindleBook";
 export const GENERATED_BLOCK_START = "<!-- kindle-bridge:generated:start -->";
 export const GENERATED_BLOCK_END = "<!-- kindle-bridge:generated:end -->";
 
+/** Shown instead of a blank block when a sync confirms zero current
+ * annotations for a book that already has a note - distinguishes
+ * "confirmed empty" from "something broke." See docs/risks.md R-13. */
+const NO_ANNOTATIONS_PLACEHOLDER =
+  "_No highlights or memos found for this book on Amazon as of the last sync._";
+
+/** Prepended into the generated block (never replacing existing
+ * content) for a note whose book no longer appears in the Kindle
+ * library - see BookNoteRepository.flagRemovedBooks() and
+ * docs/risks.md R-13. Self-healing: a normal sync fully regenerates
+ * the block and this banner is not part of that regeneration, so it
+ * disappears the next time the book is actually synced again. */
+export const MISSING_FROM_LIBRARY_BANNER =
+  "> [!warning] This book no longer appears in your Kindle library\n" +
+  "> The highlights/memos below are from the last successful sync and won't be updated further unless this book reappears.";
+
 export interface RenderedBookNote {
   /** Plugin-owned frontmatter keys, for a shallow merge into the file's
    * frontmatter (existing user-added keys are left untouched). */
@@ -56,6 +72,10 @@ export function renderBookNote(
     memo_count: memoCount,
     last_synced_at: options.syncedAt,
     tags: ["kindle", "reading"],
+    // Always explicitly reset (never omitted) so a normal sync
+    // self-heals a note previously flagged by
+    // BookNoteRepository.flagRemovedBooks() - see docs/risks.md R-13.
+    kindle_bridge_missing_from_library: false,
   };
 
   const generatedBlockBody = renderAnnotations(annotations);
@@ -97,6 +117,9 @@ function renderHeader(book: KindleBook, displayCoverImage: boolean): string {
 }
 
 function renderAnnotations(annotations: KindleAnnotation[]): string {
+  if (annotations.length === 0) {
+    return NO_ANNOTATIONS_PLACEHOLDER;
+  }
   return annotations.map((annotation) => renderAnnotation(annotation)).join("\n\n");
 }
 

@@ -6,11 +6,16 @@ import { buildBookFileName } from "./FileNameSanitizer";
 import {
   GENERATED_BLOCK_END,
   GENERATED_BLOCK_START,
+  MISSING_FROM_LIBRARY_BANNER,
   renderBookNote,
   type RenderBookNoteOptions,
 } from "./BookNoteRenderer";
 
-export type BookNoteWriteOutcome = "created" | "updated";
+/** `"skipped"` means: no note exists yet for this book, and there's
+ * nothing to write (zero current annotations) - never creates
+ * empty-note clutter for books that have never been annotated. See
+ * docs/risks.md R-13. */
+export type BookNoteWriteOutcome = "created" | "updated" | "skipped";
 
 export class VaultFolderCreationError extends Error {
   constructor(path: string) {
@@ -42,6 +47,7 @@ export class GeneratedBlockMissingError extends Error {
 }
 
 const FRONTMATTER_BOOK_ID_KEY = "kindle_book_id";
+const FRONTMATTER_MISSING_KEY = "kindle_bridge_missing_from_library";
 
 /** What KindleSyncService needs from the repository - kept as an
  * interface (rather than depending on the concrete class directly) so
@@ -56,6 +62,12 @@ export interface BookNoteWriter {
     annotations: KindleAnnotation[],
     options: RenderBookNoteOptions,
   ) => Promise<BookNoteWriteOutcome>;
+  /** Flags every managed note whose book id isn't in `currentBookIds`
+   * as no longer in the library (frontmatter key + an in-block banner
+   * - never deletes or overwrites existing highlight content). Already-
+   * flagged notes are skipped, so the returned count is only newly-
+   * flagged notes this run. See docs/risks.md R-13. */
+  flagRemovedBooks: (currentBookIds: Set<string>) => Promise<number>;
 }
 
 /**
@@ -80,10 +92,13 @@ export class BookNoteRepository implements BookNoteWriter {
     annotations: KindleAnnotation[],
     options: RenderBookNoteOptions,
   ): Promise<BookNoteWriteOutcome> {
-    await this.ensureOutputFolderExists();
-
-    const rendered = renderBookNote(book, annotations, options);
     const existing = this.findExistingNote(book.id);
+    if (!existing && annotations.length === 0) {
+      return "skipped";
+    }
+
+    await this.ensureOutputFolderExists();
+    const rendered = renderBookNote(book, annotations, options);
 
     if (existing) {
       await this.updateNote(existing, rendered.frontmatter, rendered.generatedBlockBody);
@@ -94,19 +109,61 @@ export class BookNoteRepository implements BookNoteWriter {
     return "created";
   }
 
+  /** Flags every managed note whose book id isn't in `currentBookIds`
+   * - see the `BookNoteWriter.flagRemovedBooks` doc comment. A note
+   * whose generated-block markers are missing (see
+   * GeneratedBlockMissingError) is skipped rather than aborting the
+   * whole scan, consistent with this plugin's per-item failure
+   * isolation elsewhere (e.g. KindleSyncService.syncOneBook). */
+  async flagRemovedBooks(currentBookIds: Set<string>): Promise<number> {
+    let flaggedCount = 0;
+
+    for (const note of this.findAllManagedNotes()) {
+      if (currentBookIds.has(note.bookId)) {
+        continue;
+      }
+      const cache = this.metadataCache.getFileCache(note.file);
+      if (cache?.frontmatter?.[FRONTMATTER_MISSING_KEY] === true) {
+        continue;
+      }
+
+      try {
+        await this.vault.process(note.file, (data) =>
+          insertMissingFromLibraryBanner(data, note.file.path),
+        );
+      } catch {
+        continue;
+      }
+      await this.fileManager.processFrontMatter(note.file, (fm: Record<string, unknown>) => {
+        fm[FRONTMATTER_MISSING_KEY] = true;
+      });
+      flaggedCount++;
+    }
+
+    return flaggedCount;
+  }
+
   private findExistingNote(bookId: string): TFile | undefined {
+    return this.findAllManagedNotes().find((note) => note.bookId === bookId)?.file;
+  }
+
+  /** Every Markdown file under the output folder with a `kindle_book_id`
+   * frontmatter value - the shared enumeration `findExistingNote()` and
+   * `flagRemovedBooks()` both build on. */
+  private findAllManagedNotes(): Array<{ file: TFile; bookId: string }> {
     const folderPrefix = `${joinVaultPath(this.outputFolder)}/`;
+    const notes: Array<{ file: TFile; bookId: string }> = [];
     for (const file of this.vault.getMarkdownFiles()) {
       if (!file.path.startsWith(folderPrefix)) {
         continue;
       }
       const cache = this.metadataCache.getFileCache(file);
       const rawBookId: unknown = cache?.frontmatter?.[FRONTMATTER_BOOK_ID_KEY];
-      if (typeof rawBookId === "string" && rawBookId === bookId) {
-        return file;
+      if (typeof rawBookId === "string" && rawBookId.length > 0) {
+        notes.push({ file, bookId: rawBookId });
       }
     }
-    return undefined;
+    return notes;
   }
 
   private async createNote(
@@ -198,4 +255,18 @@ function replaceGeneratedBlock(data: string, path: string, generatedBlockBody: s
   const before = data.slice(0, startIndex + GENERATED_BLOCK_START.length);
   const after = data.slice(endIndex);
   return `${before}\n\n${generatedBlockBody}\n\n${after}`;
+}
+
+/** Inserts the "missing from library" banner right after
+ * GENERATED_BLOCK_START, leaving the rest of the block (existing
+ * highlights) untouched - unlike replaceGeneratedBlock(), this never
+ * discards content, since flagRemovedBooks() has no fresh fetch to
+ * replace it with. */
+function insertMissingFromLibraryBanner(data: string, path: string): string {
+  const startIndex = data.indexOf(GENERATED_BLOCK_START);
+  if (startIndex === -1) {
+    throw new GeneratedBlockMissingError(path);
+  }
+  const insertAt = startIndex + GENERATED_BLOCK_START.length;
+  return `${data.slice(0, insertAt)}\n\n${MISSING_FROM_LIBRARY_BANNER}\n${data.slice(insertAt)}`;
 }

@@ -30,8 +30,14 @@ function fakeSessionService(valid: boolean): AmazonSessionService {
   return { isSessionValid: vi.fn().mockResolvedValue(valid) };
 }
 
-function fakeBookNoteWriter(): BookNoteWriter & { upsert: ReturnType<typeof vi.fn> } {
-  return { upsert: vi.fn().mockResolvedValue("created") };
+function fakeBookNoteWriter(): BookNoteWriter & {
+  upsert: ReturnType<typeof vi.fn>;
+  flagRemovedBooks: ReturnType<typeof vi.fn>;
+} {
+  return {
+    upsert: vi.fn().mockResolvedValue("created"),
+    flagRemovedBooks: vi.fn().mockResolvedValue(0),
+  };
 }
 
 function buildService(overrides: {
@@ -137,9 +143,15 @@ describe("AmazonKindleSyncService", () => {
     await expect(service.sync(region)).rejects.toThrow(AmazonAuthUnsupportedError);
   });
 
-  it("counts a book with zero parsed annotations as skipped, without writing a note", async () => {
+  it("still calls upsert for a book with zero parsed annotations, letting the repository decide skip vs. clear", async () => {
     const bookNoteRepository = fakeBookNoteWriter();
-    // Present container, but no `.kp-notebook-annotation` blocks inside.
+    // The repository is the one that decides "skipped" (no existing
+    // note) vs. "updated" (existing note, now cleared) for zero
+    // annotations - see docs/risks.md R-13. Simulate its "no existing
+    // note yet" answer here; BookNoteRepository.spec.ts covers the
+    // actual decision logic.
+    bookNoteRepository.upsert.mockResolvedValue("skipped");
+    // Present container, but no annotation blocks inside.
     const noAnnotations = '<div id="kp-notebook-annotations"></div>';
 
     const service = buildService({
@@ -153,7 +165,49 @@ describe("AmazonKindleSyncService", () => {
     const result = await service.sync(region);
 
     expect(result.skipped).toBe(2);
-    expect(bookNoteRepository.upsert).not.toHaveBeenCalled();
+    expect(bookNoteRepository.upsert).toHaveBeenCalledTimes(2);
+    expect(bookNoteRepository.upsert).toHaveBeenCalledWith(
+      expect.anything(),
+      [],
+      expect.anything(),
+    );
+  });
+
+  it("calls flagRemovedBooks once per sync with the current book ids, and surfaces its count", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    bookNoteRepository.flagRemovedBooks.mockResolvedValue(3);
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml: vi.fn().mockResolvedValue(annotationsHtml),
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(bookNoteRepository.flagRemovedBooks).toHaveBeenCalledTimes(1);
+    expect(bookNoteRepository.flagRemovedBooks).toHaveBeenCalledWith(
+      new Set(["B0JPBOOK0001", "B0JPBOOK0002"]),
+    );
+    expect(result.notesFlaggedRemoved).toBe(3);
+  });
+
+  it("skips flagRemovedBooks entirely when the book list comes back empty", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue('<div id="kp-notebook-library"></div>'),
+        fetchBookAnnotationsHtml: vi.fn(),
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(result.booksFound).toBe(0);
+    expect(bookNoteRepository.flagRemovedBooks).not.toHaveBeenCalled();
+    expect(result.notesFlaggedRemoved).toBe(0);
   });
 
   it("passes the live displayCoverImage setting through to the repository on each call", async () => {

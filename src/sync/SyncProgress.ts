@@ -6,6 +6,11 @@ export interface SyncResult {
   highlightsFetched: number;
   memosFetched: number;
   skipped: number;
+  /** Notes newly flagged this run as "book no longer in your Kindle
+   * library" - see BookNoteRepository.flagRemovedBooks() and
+   * docs/risks.md R-13. Not a running total: a note already flagged in
+   * a previous sync isn't counted again. */
+  notesFlaggedRemoved: number;
   errors: number;
 }
 
@@ -17,6 +22,7 @@ export function emptySyncResult(): SyncResult {
     highlightsFetched: 0,
     memosFetched: 0,
     skipped: 0,
+    notesFlaggedRemoved: 0,
     errors: 0,
   };
 }
