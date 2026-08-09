@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-and-release:
@@ -26,6 +28,16 @@ jobs:
       - run: npm ci
 
       - run: npm run build
+
+      # Recommended by Obsidian's plugin release docs: a signed build
+      # provenance attestation for the release assets. No styles.css
+      # is listed since this plugin doesn't ship one - see README.md.
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            main.js
+            manifest.json
 
       - name: Create a draft GitHub Release with the plugin's build artifacts
         env:

@@ -1,6 +1,6 @@
 {
   "name": "kindle-bridge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your Obsidian vault.",
   "main": "main.js",
   "scripts": {
@@ -12,7 +12,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "validate-release": "node scripts/validate-release.mjs"
   },
   "keywords": [
     "obsidian",

@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a problem with Kindle Bridge
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+
+        **Do not include Amazon cookies, session tokens, passwords, OTPs, or other authentication information.**
+        Also avoid pasting real highlight/note text or other personal Kindle library content — describe the problem structurally instead (e.g. "authors field is empty" rather than pasting the actual book/author names), unless it's genuinely necessary and you're comfortable making it public.
+
+  - type: input
+    id: version
+    attributes:
+      label: Kindle Bridge version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian-version
+    attributes:
+      label: Obsidian version
+      placeholder: "1.7.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: region
+    attributes:
+      label: Amazon region
+      options:
+        - Japan
+        - Global / United States
+        - United Kingdom (unverified)
+        - Germany (unverified)
+        - France (unverified)
+        - Spain (unverified)
+        - Italy (unverified)
+        - Netherlands (unverified)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect to happen, and what actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant console output
+      description: >
+        Enable "Debug logging" in Settings, reproduce the issue, then copy the
+        `[Kindle Bridge]`-prefixed lines from the developer console (View → Toggle
+        Developer Tools). Credentials are masked automatically, but please still
+        review the output before pasting it here.
+      render: shell
+    validations:
+      required: false

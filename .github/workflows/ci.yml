@@ -1,0 +1,32 @@
+name: CI
+
+# Runs on every push and pull request against main, so regressions are
+# caught before a release tag is ever pushed. Uses the same Node.js
+# version as .github/workflows/release.yml, since that's the version
+# this plugin is actually built and released with.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm run build
