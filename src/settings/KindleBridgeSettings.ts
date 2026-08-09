@@ -1,5 +1,12 @@
 import { DEFAULT_AMAZON_REGION_ID, isKnownAmazonRegionId } from "../amazon/AmazonRegion";
 
+/** Floor/ceiling for `autoSyncIntervalMinutes` - matches this project's
+ * existing rate-limiting principle (docs/risks.md R-03/R-14/R-19):
+ * automatic sync must never be able to hammer Amazon more often than a
+ * manual, deliberate sync reasonably would. */
+export const AUTO_SYNC_MIN_INTERVAL_MINUTES = 15;
+export const AUTO_SYNC_MAX_INTERVAL_MINUTES = 360;
+
 export interface KindleBridgeSettings {
   amazonRegion: string;
   outputFolder: string;
@@ -12,6 +19,14 @@ export interface KindleBridgeSettings {
   dailyNoteSummaryEnabled: boolean;
   dailyNoteFolder: string;
   dailyNoteDateFormat: string;
+  /** Opt-in: run a sync once Obsidian's layout is ready. Failures are
+   * logged only, never shown as a Notice - see docs/risks.md R-19. */
+  autoSyncOnStartup: boolean;
+  /** Opt-in: run a sync every `autoSyncIntervalMinutes` while Obsidian
+   * is open. Changing either field takes effect after a plugin
+   * reload/Obsidian restart - the interval isn't re-registered live. */
+  autoSyncIntervalEnabled: boolean;
+  autoSyncIntervalMinutes: number;
 }
 
 export const DEFAULT_SETTINGS: KindleBridgeSettings = {
@@ -22,6 +37,9 @@ export const DEFAULT_SETTINGS: KindleBridgeSettings = {
   dailyNoteSummaryEnabled: false,
   dailyNoteFolder: "Daily Notes",
   dailyNoteDateFormat: "YYYY-MM-DD",
+  autoSyncOnStartup: false,
+  autoSyncIntervalEnabled: false,
+  autoSyncIntervalMinutes: 60,
 };
 
 /**
@@ -71,6 +89,28 @@ export function normalizeSettings(data: unknown): KindleBridgeSettings {
       ? partial.dailyNoteDateFormat
       : DEFAULT_SETTINGS.dailyNoteDateFormat;
 
+  const autoSyncOnStartup =
+    typeof partial.autoSyncOnStartup === "boolean"
+      ? partial.autoSyncOnStartup
+      : DEFAULT_SETTINGS.autoSyncOnStartup;
+
+  const autoSyncIntervalEnabled =
+    typeof partial.autoSyncIntervalEnabled === "boolean"
+      ? partial.autoSyncIntervalEnabled
+      : DEFAULT_SETTINGS.autoSyncIntervalEnabled;
+
+  // Clamped (not just type-checked) since a hand-edited/downgraded
+  // data.json isn't constrained by the settings UI's slider - see
+  // AUTO_SYNC_MIN_INTERVAL_MINUTES/AUTO_SYNC_MAX_INTERVAL_MINUTES.
+  const autoSyncIntervalMinutes =
+    typeof partial.autoSyncIntervalMinutes === "number" &&
+    Number.isFinite(partial.autoSyncIntervalMinutes)
+      ? Math.min(
+          AUTO_SYNC_MAX_INTERVAL_MINUTES,
+          Math.max(AUTO_SYNC_MIN_INTERVAL_MINUTES, partial.autoSyncIntervalMinutes),
+        )
+      : DEFAULT_SETTINGS.autoSyncIntervalMinutes;
+
   return {
     amazonRegion,
     outputFolder,
@@ -79,5 +119,8 @@ export function normalizeSettings(data: unknown): KindleBridgeSettings {
     dailyNoteSummaryEnabled,
     dailyNoteFolder,
     dailyNoteDateFormat,
+    autoSyncOnStartup,
+    autoSyncIntervalEnabled,
+    autoSyncIntervalMinutes,
   };
 }

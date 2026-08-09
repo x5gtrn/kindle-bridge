@@ -100,6 +100,23 @@ export default class KindleBridgePlugin extends Plugin {
       name: "Open settings",
       callback: () => this.openSettingsTab(),
     });
+
+    // Both opt-in, off by default (docs/risks.md R-19). Registered
+    // once at load time - changing either setting takes effect after
+    // a plugin reload/Obsidian restart, not live.
+    this.app.workspace.onLayoutReady(() => {
+      if (this.settings.autoSyncOnStartup) {
+        void this.runSync(true);
+      }
+    });
+    if (this.settings.autoSyncIntervalEnabled) {
+      this.registerInterval(
+        window.setInterval(
+          () => void this.runSync(true),
+          this.settings.autoSyncIntervalMinutes * 60 * 1000,
+        ),
+      );
+    }
   }
 
   onunload(): void {
@@ -201,7 +218,17 @@ export default class KindleBridgePlugin extends Plugin {
     }
   }
 
-  private async runSync(): Promise<void> {
+  /**
+   * `triggeredAutomatically` (startup/interval sync, see onload()) only
+   * changes failure UX: no Notice at all, log-only - confirmed with the
+   * user, since a stale session or transient error shouldn't nag every
+   * startup/interval the way a manually-requested sync failing should.
+   * A successful automatic run still shows the same completion Notice
+   * as manual sync, but skips SyncProgressModal - a modal stealing
+   * focus at startup or mid-work every interval would be disruptive;
+   * the Notice (and the Daily Note summary, if enabled) are enough.
+   */
+  private async runSync(triggeredAutomatically = false): Promise<void> {
     try {
       const region = this.currentRegion();
       const bookNoteRepository = new BookNoteRepository(
@@ -222,20 +249,36 @@ export default class KindleBridgePlugin extends Plugin {
       new Notice(
         `Kindle Bridge: sync complete (${result.notesCreated} created, ${result.notesUpdated} updated, ${result.errors} errors).`,
       );
-      new SyncProgressModal(this.app, result).open();
+      if (!triggeredAutomatically) {
+        new SyncProgressModal(this.app, result).open();
+      }
 
       if (this.settings.dailyNoteSummaryEnabled) {
         await this.appendDailyNoteSummary(result);
       }
     } catch (error) {
       if (error instanceof SyncAlreadyInProgressError) {
+        if (triggeredAutomatically) {
+          this.logger.debug("Automatic sync skipped - a sync is already in progress.");
+          return;
+        }
         new Notice("Kindle Bridge: a sync is already in progress.");
         return;
       }
       if (error instanceof AmazonSessionExpiredError) {
+        if (triggeredAutomatically) {
+          this.logger.debug("Automatic sync skipped - the Amazon session has expired.");
+          return;
+        }
         new Notice(
           'Kindle Bridge: your Amazon session has expired. Run "Kindle Bridge: Sign in to Amazon" and try again.',
         );
+        return;
+      }
+      if (triggeredAutomatically) {
+        this.logger.warn("Automatic sync failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
         return;
       }
       this.notifyError("Sync failed", error);

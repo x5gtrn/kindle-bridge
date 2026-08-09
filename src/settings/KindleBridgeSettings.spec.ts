@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, normalizeSettings } from "./KindleBridgeSettings";
+import {
+  AUTO_SYNC_MAX_INTERVAL_MINUTES,
+  AUTO_SYNC_MIN_INTERVAL_MINUTES,
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+} from "./KindleBridgeSettings";
 
 describe("normalizeSettings", () => {
   it("returns defaults for undefined/null input", () => {
@@ -21,6 +26,9 @@ describe("normalizeSettings", () => {
       dailyNoteSummaryEnabled: true,
       dailyNoteFolder: "Journal",
       dailyNoteDateFormat: "YYYY/MM/DD",
+      autoSyncOnStartup: true,
+      autoSyncIntervalEnabled: true,
+      autoSyncIntervalMinutes: 120,
     });
     expect(result).toEqual({
       amazonRegion: "global",
@@ -30,6 +38,9 @@ describe("normalizeSettings", () => {
       dailyNoteSummaryEnabled: true,
       dailyNoteFolder: "Journal",
       dailyNoteDateFormat: "YYYY/MM/DD",
+      autoSyncOnStartup: true,
+      autoSyncIntervalEnabled: true,
+      autoSyncIntervalMinutes: 120,
     });
   });
 
@@ -74,5 +85,38 @@ describe("normalizeSettings", () => {
   it("ignores a wrong-typed dailyNoteSummaryEnabled field", () => {
     const result = normalizeSettings({ dailyNoteSummaryEnabled: "yes" });
     expect(result.dailyNoteSummaryEnabled).toBe(DEFAULT_SETTINGS.dailyNoteSummaryEnabled);
+  });
+
+  it("ignores wrong-typed autoSync boolean fields", () => {
+    const result = normalizeSettings({
+      autoSyncOnStartup: "yes",
+      autoSyncIntervalEnabled: 1,
+    });
+    expect(result.autoSyncOnStartup).toBe(DEFAULT_SETTINGS.autoSyncOnStartup);
+    expect(result.autoSyncIntervalEnabled).toBe(DEFAULT_SETTINGS.autoSyncIntervalEnabled);
+  });
+
+  it("clamps an autoSyncIntervalMinutes value below the minimum", () => {
+    const result = normalizeSettings({ autoSyncIntervalMinutes: 1 });
+    expect(result.autoSyncIntervalMinutes).toBe(AUTO_SYNC_MIN_INTERVAL_MINUTES);
+  });
+
+  it("clamps an autoSyncIntervalMinutes value above the maximum", () => {
+    const result = normalizeSettings({ autoSyncIntervalMinutes: 10_000 });
+    expect(result.autoSyncIntervalMinutes).toBe(AUTO_SYNC_MAX_INTERVAL_MINUTES);
+  });
+
+  it("keeps an autoSyncIntervalMinutes value within the valid range", () => {
+    const result = normalizeSettings({ autoSyncIntervalMinutes: 90 });
+    expect(result.autoSyncIntervalMinutes).toBe(90);
+  });
+
+  it("falls back to the default autoSyncIntervalMinutes for a non-numeric value", () => {
+    expect(normalizeSettings({ autoSyncIntervalMinutes: "60" }).autoSyncIntervalMinutes).toBe(
+      DEFAULT_SETTINGS.autoSyncIntervalMinutes,
+    );
+    expect(normalizeSettings({ autoSyncIntervalMinutes: NaN }).autoSyncIntervalMinutes).toBe(
+      DEFAULT_SETTINGS.autoSyncIntervalMinutes,
+    );
   });
 });

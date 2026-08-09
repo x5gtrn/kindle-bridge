@@ -1,6 +1,10 @@
 import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
 import { listAmazonRegions } from "../amazon/AmazonRegion";
-import type { KindleBridgeSettings } from "./KindleBridgeSettings";
+import {
+  AUTO_SYNC_MAX_INTERVAL_MINUTES,
+  AUTO_SYNC_MIN_INTERVAL_MINUTES,
+  type KindleBridgeSettings,
+} from "./KindleBridgeSettings";
 
 /** What this settings tab needs from the plugin instance that owns it. */
 export interface KindleBridgeSettingsHost {
@@ -103,6 +107,46 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
           .setValue(this.host.settings.dailyNoteDateFormat)
           .onChange(async (value) => {
             this.host.settings.dailyNoteDateFormat = value;
+            await this.host.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Sync on startup")
+      .setDesc(
+        "Automatically run a sync once Obsidian finishes loading. Failures (not signed in, session expired, network error) are logged only, never shown as a Notice - only a successful sync is. Takes effect after reloading the plugin/restarting Obsidian.",
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.host.settings.autoSyncOnStartup).onChange(async (value) => {
+          this.host.settings.autoSyncOnStartup = value;
+          await this.host.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Automatic interval sync")
+      .setDesc(
+        "Automatically run a sync on a fixed interval while Obsidian is open, in addition to (or instead of) sync on startup. Same silent-failure behavior as above. Takes effect after reloading the plugin/restarting Obsidian.",
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.host.settings.autoSyncIntervalEnabled).onChange(async (value) => {
+          this.host.settings.autoSyncIntervalEnabled = value;
+          await this.host.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Sync interval (minutes)")
+      .setDesc(
+        `How often to automatically sync, in minutes (${AUTO_SYNC_MIN_INTERVAL_MINUTES}-${AUTO_SYNC_MAX_INTERVAL_MINUTES}). Only used if "Automatic interval sync" is on.`,
+      )
+      .addSlider((slider) => {
+        slider
+          .setLimits(AUTO_SYNC_MIN_INTERVAL_MINUTES, AUTO_SYNC_MAX_INTERVAL_MINUTES, 15)
+          .setValue(this.host.settings.autoSyncIntervalMinutes)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.host.settings.autoSyncIntervalMinutes = value;
             await this.host.saveSettings();
           });
       });
