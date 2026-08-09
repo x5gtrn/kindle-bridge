@@ -1,6 +1,6 @@
 # Manual Test Checklist — Obsidian Kindle Bridge MVP
 
-This checklist covers everything the automated test suite (Vitest, 176 tests as of this
+This checklist covers everything the automated test suite (Vitest, 186 tests as of this
 writing) **cannot** verify: real Obsidian plugin loading, a real separate Chrome/Edge/
 Chromium/Brave browser process driven via CDP, real Amazon login/MFA/CAPTCHA, real
 network fetches, and real Markdown rendering inside Obsidian's editor. See
@@ -110,9 +110,18 @@ Notes:
 
 ### 2.6 再起動後の設定保持
 
-**Steps:** Set region to Global, output folder to a custom value, and both toggles to non-default values. Fully quit and relaunch Obsidian (not just reload the window).
+**Steps:** Set region to Global, output folder to a custom value, all toggles to non-default values, and a custom Daily Note folder/date format. Fully quit and relaunch Obsidian (not just reload the window).
 
-Expected result: All four settings retain the values you set, after a full relaunch.
+Expected result: All settings retain the values you set, after a full relaunch.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 2.7 Daily Note summary の設定 - Phase 4
+
+**Steps:** Enable "Daily Note summary". Set "Daily Note folder" and "Daily Note date format" to match your real Daily Notes plugin settings (Settings → Daily notes, if you use it).
+
+Expected result: The three new fields (toggle, folder, date format) save and persist like any other setting; the description text under the toggle clearly states this plugin never creates the Daily Note and uses its own settings, not Obsidian's real Daily Notes configuration.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -283,6 +292,24 @@ Notes:
 **Steps:** Following on from 4.10, restore the book to your Kindle library (undo whatever made it disappear), then sync again.
 
 Expected result: The book gets a normal `upsert()` this time - the warning banner is gone, `kindle_bridge_missing_from_library` is back to `false` in frontmatter, and the generated block reflects the book's real current highlights/memos.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.12 Daily Note summary の実際の追記 (Phase 4)
+
+**Steps:** With "Daily Note summary" enabled (2.7) and its folder/date format matching a Daily Note you already have open/created for today, run a sync that creates or updates at least one book note. Then run "Sync now" again immediately with nothing changed on Amazon's side.
+
+Expected result: After the first sync, a new line appears at the end of today's Daily Note, starting with "📚 Kindle Bridge:" and matching the sync's actual created/updated/flagged/highlight/memo counts. After the second (no-op) sync, **no new line** is appended (zero meaningful activity).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.13 Daily Note が存在しない場合 (Phase 4)
+
+**Steps:** Make sure today's Daily Note does **not** exist yet (delete it if a previous test created one, or pick a date format that resolves to a nonexistent file). With "Daily Note summary" enabled, run a sync that creates/updates a note.
+
+Expected result: The sync completes normally (Notice + modal as usual) and **no Daily Note file is created** - this plugin never creates it, only appends to an existing one. No error is shown to the user even though nothing was appended.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
