@@ -80,6 +80,28 @@ describe("parseBookList", () => {
     expect(book?.lastAnnotatedAt).toBe("2026-08-09");
   });
 
+  it("requests a larger cover image than the tiny thumbnail Amazon embeds on the page", () => {
+    const html = `
+      <div id="kp-notebook-library">
+        <div id="B0JPBOOK0099" class="a-row kp-notebook-library-each-book">
+          <span class="a-declarative" data-action="get-annotations-for-asin">
+            <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+              <div class="a-row">
+                <div class="a-column a-span4 a-push4 a-spacing-medium a-spacing-top-medium">
+                  <img class="kp-notebook-cover-image kp-notebook-cover-image-border" src="https://m.media-amazon.com/images/I/81W8knGT65L._SY160.jpg" />
+                </div>
+              </div>
+              <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">Sample Book</h2>
+              <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable"></p>
+            </a>
+          </span>
+        </div>
+      </div>
+    `;
+    const [book] = parseBookList(html, getAmazonRegion("jp"));
+    expect(book?.coverImageUrl).toBe("https://m.media-amazon.com/images/I/81W8knGT65L._SY500.jpg");
+  });
+
   describe("Global region", () => {
     const region = getAmazonRegion("global");
     const books = parseBookList(loadFixture("books-global.html"), region);

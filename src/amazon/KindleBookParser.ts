@@ -1,6 +1,7 @@
 import * as cheerio from "cheerio";
 import type { KindleBook } from "../models/KindleBook";
 import { normalizeForHash, sha256Hex } from "../utils/hash";
+import { upsizeCoverImageUrl } from "./amazonImageUrl";
 import type { AmazonRegion } from "./AmazonRegion";
 import { KindleParseError } from "./KindleParseError";
 import { parseAmazonDate } from "./parseAmazonDate";
@@ -63,7 +64,8 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
       asin,
       title,
       authors: author.length > 0 ? [author] : [],
-      coverImageUrl: coverImageUrl && coverImageUrl.length > 0 ? coverImageUrl : undefined,
+      coverImageUrl:
+        coverImageUrl && coverImageUrl.length > 0 ? upsizeCoverImageUrl(coverImageUrl) : undefined,
       amazonUrl: asin ? `https://www.${region.amazonDomain}/dp/${asin}` : undefined,
       lastAnnotatedAt,
       region: region.id,
