@@ -32,13 +32,13 @@ Kindle Bridge doesn't need any special integration to work with the [Dataview](h
 | `last_synced_at` | ISO-8601 instant | Updated every sync, even if nothing changed |
 | `kindle_bridge_missing_from_library` | `false` | `true` if the book was flagged as no longer in your Kindle library (see "What this is" above) |
 
-A few example queries, using [DQL](https://blacksmithgu.github.io/obsidian-dataview/queries/query-types/) (put these in a code block with the `dataview` language tag in any note):
+A few example queries, using [DQL](https://blacksmithgu.github.io/obsidian-dataview/queries/query-types/) (put these in a code block with the `dataview` language tag in any note). `last_synced_at` is an ISO-8601 instant, auto-parsed by Dataview into a date object - format it with `dateformat(field, "format")` for a clean `YYYY-MM-DD`-style display. **Watch the casing**: Dataview's `dateformat()` uses [Luxon](https://moment.github.io/luxon/#/formatting?id=table-of-tokens) tokens, not moment.js ones - `"yyyy-MM-dd"` (lowercase `yyyy`/`dd`) is correct. The moment.js-style `"YYYY-MM-DD"` silently produces garbled output instead of an error: uppercase `YYYY` isn't a Luxon token at all (so it's left as literal text), and uppercase `DD` *is* a Luxon token, but a macro one meaning "localized date with abbreviated month" (e.g. "Aug 10, 2026") - together they render as something like `YYYY-08-Aug 10, 2026`, not a date.
 
 **All synced books, most recently synced first:**
 
 ````
 ```dataview
-TABLE authors AS "Author", highlight_count AS "Highlights", note_count AS "Notes", last_synced_at AS "Last synced"
+TABLE authors AS "Author", highlight_count AS "Highlights", note_count AS "Notes", dateformat(last_synced_at, "yyyy-MM-dd") AS "Last synced"
 FROM ""
 WHERE kindle_bridge
 SORT last_synced_at DESC
@@ -61,7 +61,7 @@ LIMIT 10
 
 ````
 ```dataview
-TABLE amazon_region AS "Region", last_synced_at AS "Last synced"
+TABLE amazon_region AS "Region", dateformat(last_synced_at, "yyyy-MM-dd") AS "Last synced"
 FROM ""
 WHERE kindle_bridge AND kindle_bridge_missing_from_library
 ```
@@ -71,7 +71,7 @@ WHERE kindle_bridge AND kindle_bridge_missing_from_library
 
 ````
 ```dataview
-LIST last_synced_at
+LIST dateformat(last_synced_at, "yyyy-MM-dd")
 FROM ""
 WHERE kindle_bridge AND date(last_synced_at) >= date(today) - dur(7 days)
 SORT last_synced_at DESC
