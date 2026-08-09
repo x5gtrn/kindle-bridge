@@ -25,23 +25,23 @@ const highlightOnly: KindleAnnotation = {
   contentHash: "hash-1",
 };
 
-const highlightWithMemo: KindleAnnotation = {
+const highlightWithNote: KindleAnnotation = {
   id: "annotation-2",
   bookId: book.id,
   type: "highlight",
   text: "Highlight text",
-  memo: "Memo text.",
+  note: "Note text.",
   location: "456",
   createdAt: "2026-08-02",
   sourceUrl: "https://example.com/",
   contentHash: "hash-2",
 };
 
-const memoOnly: KindleAnnotation = {
+const noteOnly: KindleAnnotation = {
   id: "annotation-3",
   bookId: book.id,
-  type: "memo",
-  text: "A standalone memo.",
+  type: "note",
+  text: "A standalone note.",
   sourceUrl: "https://example.com/",
   contentHash: "hash-3",
 };
@@ -49,14 +49,14 @@ const memoOnly: KindleAnnotation = {
 const options = { displayCoverImage: true, syncedAt: "2026-08-06T18:00:00+09:00" };
 
 describe("renderBookNote", () => {
-  it("computes highlight_count/memo_count/annotation_count per the spec's counting rule", () => {
+  it("computes highlight_count/note_count/annotation_count per the spec's counting rule", () => {
     const { frontmatter } = renderBookNote(
       book,
-      [highlightOnly, highlightWithMemo, memoOnly],
+      [highlightOnly, highlightWithNote, noteOnly],
       options,
     );
     expect(frontmatter.highlight_count).toBe(2);
-    expect(frontmatter.memo_count).toBe(2); // highlightWithMemo's memo + memoOnly
+    expect(frontmatter.note_count).toBe(2); // highlightWithNote's note + noteOnly
     expect(frontmatter.annotation_count).toBe(4);
   });
 
@@ -132,13 +132,13 @@ describe("renderBookNote", () => {
     expect(initialBody).not.toContain("**Amazon:**");
   });
 
-  it("passes Markdown special characters in highlight/memo text through unescaped (known cosmetic limitation)", () => {
+  it("passes Markdown special characters in highlight/note text through unescaped (known cosmetic limitation)", () => {
     const specialCharsAnnotation: KindleAnnotation = {
       id: "annotation-5",
       bookId: book.id,
       type: "highlight",
       text: "Text with *asterisks*, # a hash, and [brackets](url).",
-      memo: "Memo with _underscores_ and a | pipe.",
+      note: "Note with _underscores_ and a | pipe.",
       sourceUrl: "https://example.com/",
       contentHash: "hash-5",
     };
@@ -148,7 +148,7 @@ describe("renderBookNote", () => {
     // than literal text - a cosmetic issue, not a data-loss or file-
     // corruption one, since the underlying content is preserved verbatim.
     expect(generatedBlockBody).toContain("Text with *asterisks*, # a hash, and [brackets](url).");
-    expect(generatedBlockBody).toContain("Memo with _underscores_ and a | pipe.");
+    expect(generatedBlockBody).toContain("Note with _underscores_ and a | pipe.");
   });
 
   it("passes YAML-special characters in title/authors through to the frontmatter object unmodified", () => {
@@ -171,7 +171,7 @@ describe("renderBookNote", () => {
   it("renders a plain highlight with location, created date, and source", () => {
     const { generatedBlockBody } = renderBookNote(book, [highlightOnly], options);
     expect(generatedBlockBody).toContain("### Highlight");
-    expect(generatedBlockBody).not.toContain("### Highlight with Memo");
+    expect(generatedBlockBody).not.toContain("### Highlight with Note");
     expect(generatedBlockBody).toContain("<!-- kindle-bridge:annotation:id=annotation-1 -->");
     expect(generatedBlockBody).toContain("> Highlight text");
     expect(generatedBlockBody).toContain("- Location: 123");
@@ -179,19 +179,19 @@ describe("renderBookNote", () => {
     expect(generatedBlockBody).toContain("- Source: [Open in Kindle](https://example.com/)");
   });
 
-  it("renders a highlight with an attached memo under its own heading", () => {
-    const { generatedBlockBody } = renderBookNote(book, [highlightWithMemo], options);
-    expect(generatedBlockBody).toContain("### Highlight with Memo");
+  it("renders a highlight with an attached note under its own heading", () => {
+    const { generatedBlockBody } = renderBookNote(book, [highlightWithNote], options);
+    expect(generatedBlockBody).toContain("### Highlight with Note");
     expect(generatedBlockBody).toContain("> Highlight text");
-    expect(generatedBlockBody).toContain("**Memo**");
-    expect(generatedBlockBody).toContain("Memo text.");
+    expect(generatedBlockBody).toContain("**Note**");
+    expect(generatedBlockBody).toContain("Note text.");
   });
 
-  it("renders a standalone memo without a blockquote", () => {
-    const { generatedBlockBody } = renderBookNote(book, [memoOnly], options);
-    expect(generatedBlockBody).toContain("### Memo");
-    expect(generatedBlockBody).toContain("A standalone memo.");
-    expect(generatedBlockBody).not.toContain("> A standalone memo.");
+  it("renders a standalone note without a blockquote", () => {
+    const { generatedBlockBody } = renderBookNote(book, [noteOnly], options);
+    expect(generatedBlockBody).toContain("### Note");
+    expect(generatedBlockBody).toContain("A standalone note.");
+    expect(generatedBlockBody).not.toContain("> A standalone note.");
   });
 
   it("omits location/page/created lines when absent", () => {
@@ -213,7 +213,7 @@ describe("renderBookNote", () => {
   it("renders multiple annotations in order, separated by blank lines", () => {
     const { generatedBlockBody } = renderBookNote(
       book,
-      [highlightOnly, highlightWithMemo],
+      [highlightOnly, highlightWithNote],
       options,
     );
     const firstIndex = generatedBlockBody.indexOf("annotation-1");
@@ -223,17 +223,17 @@ describe("renderBookNote", () => {
   });
 
   it("produces identical output for identical input (pure function)", () => {
-    const first = renderBookNote(book, [highlightOnly, memoOnly], options);
-    const second = renderBookNote(book, [highlightOnly, memoOnly], options);
+    const first = renderBookNote(book, [highlightOnly, noteOnly], options);
+    const second = renderBookNote(book, [highlightOnly, noteOnly], options);
     expect(first).toEqual(second);
   });
 
   it("renders a placeholder, not a blank block, when there are zero current annotations (docs/risks.md R-13)", () => {
     const { generatedBlockBody, frontmatter } = renderBookNote(book, [], options);
     expect(generatedBlockBody.trim().length).toBeGreaterThan(0);
-    expect(generatedBlockBody).toContain("No highlights or memos found");
+    expect(generatedBlockBody).toContain("No highlights or notes found");
     expect(frontmatter.highlight_count).toBe(0);
-    expect(frontmatter.memo_count).toBe(0);
+    expect(frontmatter.note_count).toBe(0);
   });
 
   it("always explicitly resets kindle_bridge_missing_from_library to false on a normal render", () => {

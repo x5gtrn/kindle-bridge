@@ -32,7 +32,7 @@ function emptyResult(): SyncResult {
     notesCreated: 0,
     notesUpdated: 0,
     highlightsFetched: 0,
-    memosFetched: 0,
+    highlightNotesFetched: 0,
     skipped: 0,
     notesFlaggedRemoved: 0,
     errors: 0,
@@ -79,7 +79,7 @@ describe("DailyNoteAppender", () => {
       notesUpdated: 1,
       notesFlaggedRemoved: 1,
       highlightsFetched: 12,
-      memosFetched: 3,
+      highlightNotesFetched: 3,
     };
 
     await buildAppender(vault).appendSyncSummary(result, options);
@@ -91,7 +91,7 @@ describe("DailyNoteAppender", () => {
     expect(content).toContain("1 updated");
     expect(content).toContain("1 flagged as removed");
     expect(content).toContain("12 highlights");
-    expect(content).toContain("3 memos");
+    expect(content).toContain("3 notes");
   });
 
   it("resolves the path from the folder and injected date formatter", async () => {

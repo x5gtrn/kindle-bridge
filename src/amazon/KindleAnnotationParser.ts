@@ -29,7 +29,7 @@ export const ANNOTATION_SELECTOR = "#kp-notebook-annotations > div.a-row.a-spaci
  * Amazon exposes no stable per-annotation id in the scraped HTML, so
  * `id` is derived from region + book + type + location + text (see
  * below re: date), while `contentHash` covers only the mutable
- * text/memo content so a future differential sync (Phase 4+) can
+ * text/note content so a future differential sync (Phase 4+) can
  * distinguish "moved" from "edited". Selectors are best-effort per
  * docs/risks.md R-02.
  *
@@ -63,32 +63,32 @@ export function parseAnnotations(
     const el = $(element);
 
     const highlightText = el.find("#highlight").first().text().trim();
-    const memoTextRaw = el.find("#note").first().text().trim();
-    const memo = memoTextRaw.length > 0 ? memoTextRaw : undefined;
+    const noteTextRaw = el.find("#note").first().text().trim();
+    const note = noteTextRaw.length > 0 ? noteTextRaw : undefined;
 
     // Amazon's UI can't produce a note without an underlying highlight,
     // but defensively drop any block with neither so a stray/empty row
     // never becomes a phantom annotation.
-    if (highlightText.length === 0 && !memo) {
+    if (highlightText.length === 0 && !note) {
       return;
     }
 
-    const type: AnnotationType = highlightText.length > 0 ? "highlight" : "memo";
-    const text = highlightText.length > 0 ? highlightText : (memo ?? "");
+    const type: AnnotationType = highlightText.length > 0 ? "highlight" : "note";
+    const text = highlightText.length > 0 ? highlightText : (note ?? "");
 
     const location = firstNonEmpty(el.find("#kp-annotation-location").attr("value"));
 
     const id = sha256Hex(
       [region.id, bookId, type, location ?? "", normalizeForHash(text)].join("|"),
     );
-    const contentHash = sha256Hex([normalizeForHash(text), normalizeForHash(memo ?? "")].join("|"));
+    const contentHash = sha256Hex([normalizeForHash(text), normalizeForHash(note ?? "")].join("|"));
 
     annotations.push({
       id,
       bookId,
       type,
       text,
-      memo: type === "highlight" ? memo : undefined,
+      note: type === "highlight" ? note : undefined,
       location,
       sourceUrl: location
         ? `${region.kindleReaderUrl}/notebook?asin=${bookId}&location=${location}`

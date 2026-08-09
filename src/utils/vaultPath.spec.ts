@@ -7,8 +7,8 @@ describe("joinVaultPath", () => {
   });
 
   it("collapses duplicate slashes from segments that already contain slashes", () => {
-    expect(joinVaultPath("Highlight and Memo/Books/", "/Title.md")).toBe(
-      "Highlight and Memo/Books/Title.md",
+    expect(joinVaultPath("Highlight and Note/Books/", "/Title.md")).toBe(
+      "Highlight and Note/Books/Title.md",
     );
   });
 

@@ -113,9 +113,9 @@ describe("AmazonKindleSyncService", () => {
     expect(result.notesCreated).toBe(1);
     expect(result.errors).toBe(1);
     expect(bookNoteRepository.upsert).toHaveBeenCalledTimes(1);
-    // annotations-full.html: 2 highlight-type (ann-1, ann-2) + (1 memo-attached-to-highlight + 1 standalone memo)
+    // annotations-full.html: 2 highlight-type (ann-1, ann-2) + (1 note-attached-to-highlight + 1 standalone note)
     expect(result.highlightsFetched).toBe(2);
-    expect(result.memosFetched).toBe(2);
+    expect(result.highlightNotesFetched).toBe(2);
   });
 
   it("stops the whole sync immediately on a continuation-breaking error mid-loop", async () => {

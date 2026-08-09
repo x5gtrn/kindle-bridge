@@ -31,7 +31,7 @@ export interface KindleBridgeSettings {
 
 export const DEFAULT_SETTINGS: KindleBridgeSettings = {
   amazonRegion: DEFAULT_AMAZON_REGION_ID,
-  outputFolder: "Highlight and Memo/Books",
+  outputFolder: "Highlight and Note/Books",
   displayCoverImage: true,
   debugLogging: false,
   dailyNoteSummaryEnabled: false,

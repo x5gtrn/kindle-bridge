@@ -30,33 +30,33 @@ describe("parseAnnotations", () => {
     const html = loadFixture("annotations-full.html");
     const annotations = byAnnotationIndex(html);
 
-    it("parses a highlight with no memo/location (ann-1)", () => {
+    it("parses a highlight with no note/location (ann-1)", () => {
       const ann = annotations[0];
       expect(ann).toBeDefined();
       expect(ann?.type).toBe("highlight");
       expect(ann?.text).toContain("Programs must be written");
-      expect(ann?.memo).toBeUndefined();
+      expect(ann?.note).toBeUndefined();
       expect(ann?.location).toBeUndefined();
     });
 
-    it("associates a highlight with its memo and location (ann-2)", () => {
+    it("associates a highlight with its note and location (ann-2)", () => {
       const ann = annotations[1];
       expect(ann).toBeDefined();
       expect(ann?.type).toBe("highlight");
       expect(ann?.text).toContain("The best design is the simplest");
-      expect(ann?.memo).toBe("Re-read this before the next design review.");
+      expect(ann?.note).toBe("Re-read this before the next design review.");
       expect(ann?.location).toBe("1240");
     });
 
-    it("parses a freestanding memo (no underlying highlight) as type memo (ann-3)", () => {
+    it("parses a freestanding note (no underlying highlight) as type note (ann-3)", () => {
       const ann = annotations[2];
       expect(ann).toBeDefined();
-      expect(ann?.type).toBe("memo");
+      expect(ann?.type).toBe("note");
       expect(ann?.text).toBe("A note without a highlighted passage.");
-      expect(ann?.memo).toBeUndefined();
+      expect(ann?.note).toBeUndefined();
     });
 
-    it("filters out a block with a whitespace-only highlight and no memo (ann-4)", () => {
+    it("filters out a block with a whitespace-only highlight and no note (ann-4)", () => {
       expect(annotations).toHaveLength(3);
       const texts = annotations.map((a) => a.text);
       expect(texts.every((t) => t.trim().length > 0)).toBe(true);
@@ -130,7 +130,7 @@ describe("parseAnnotations", () => {
   });
 
   describe("present-but-empty vs. absent optional fields", () => {
-    it("treats a present-but-whitespace-only memo element the same as no memo at all", () => {
+    it("treats a present-but-whitespace-only note element the same as no note at all", () => {
       const html = `
         <div id="kp-notebook-annotations">
           <div id="ann-1" class="a-row a-spacing-base">
@@ -146,7 +146,7 @@ describe("parseAnnotations", () => {
       const [annotation] = parseAnnotations(html, "book-1", getAmazonRegion("global"));
       expect(annotation).toBeDefined();
       expect(annotation?.type).toBe("highlight");
-      expect(annotation?.memo).toBeUndefined();
+      expect(annotation?.note).toBeUndefined();
     });
 
     it("treats a present-but-empty location value the same as an absent one", () => {

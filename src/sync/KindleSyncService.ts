@@ -106,7 +106,7 @@ export class AmazonKindleSyncService implements KindleSyncService {
     try {
       const annotations = await this.fetchBookAnnotations(book, region);
       result.highlightsFetched += annotations.filter((a) => a.type === "highlight").length;
-      result.memosFetched += countMemos(annotations);
+      result.highlightNotesFetched += countNotes(annotations);
 
       const outcome = await this.deps.bookNoteRepository.upsert(book, annotations, {
         displayCoverImage: this.deps.getDisplayCoverImage(),
@@ -143,8 +143,8 @@ export class AmazonKindleSyncService implements KindleSyncService {
   }
 }
 
-function countMemos(annotations: KindleAnnotation[]): number {
-  return annotations.filter((a) => a.type === "memo" || a.memo !== undefined).length;
+function countNotes(annotations: KindleAnnotation[]): number {
+  return annotations.filter((a) => a.type === "note" || a.note !== undefined).length;
 }
 
 /** Errors that make the rest of the sync pointless or unsafe to

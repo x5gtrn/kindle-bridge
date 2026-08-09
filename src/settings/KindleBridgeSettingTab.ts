@@ -26,7 +26,7 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Amazon region")
-      .setDesc("Which Amazon Kindle store to sync highlights and memos from.")
+      .setDesc("Which Amazon Kindle store to sync highlights and notes from.")
       .addDropdown((dropdown) => {
         for (const region of listAmazonRegions()) {
           dropdown.addOption(region.id, region.label);
@@ -43,7 +43,7 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .setDesc("Vault folder where per-book Markdown notes are created.")
       .addText((text) => {
         text
-          .setPlaceholder("Highlight and Memo/Books")
+          .setPlaceholder("Highlight and Note/Books")
           .setValue(this.host.settings.outputFolder)
           .onChange(async (value) => {
             this.host.settings.outputFolder = value;

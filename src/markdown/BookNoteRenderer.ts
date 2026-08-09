@@ -11,7 +11,7 @@ export const GENERATED_BLOCK_END = "<!-- kindle-bridge:generated:end -->";
  * annotations for a book that already has a note - distinguishes
  * "confirmed empty" from "something broke." See docs/risks.md R-13. */
 const NO_ANNOTATIONS_PLACEHOLDER =
-  "_No highlights or memos found for this book on Amazon as of the last sync._";
+  "_No highlights or notes found for this book on Amazon as of the last sync._";
 
 /** Prepended into the generated block (never replacing existing
  * content) for a note whose book no longer appears in the Kindle
@@ -21,7 +21,7 @@ const NO_ANNOTATIONS_PLACEHOLDER =
  * disappears the next time the book is actually synced again. */
 export const MISSING_FROM_LIBRARY_BANNER =
   "> [!warning] This book no longer appears in your Kindle library\n" +
-  "> The highlights/memos below are from the last successful sync and won't be updated further unless this book reappears.";
+  "> The highlights/notes below are from the last successful sync and won't be updated further unless this book reappears.";
 
 export interface RenderedBookNote {
   /** Plugin-owned frontmatter keys, for a shallow merge into the file's
@@ -55,7 +55,7 @@ export function renderBookNote(
   options: RenderBookNoteOptions,
 ): RenderedBookNote {
   const highlightCount = annotations.filter((a) => a.type === "highlight").length;
-  const memoCount = annotations.filter((a) => a.type === "memo" || a.memo !== undefined).length;
+  const noteCount = annotations.filter((a) => a.type === "note" || a.note !== undefined).length;
 
   const frontmatter: Record<string, unknown> = {
     kindle_bridge: true,
@@ -67,9 +67,9 @@ export function renderBookNote(
     amazon_url: book.amazonUrl ?? null,
     cover_image_url: book.coverImageUrl ?? null,
     last_annotated_at: book.lastAnnotatedAt ?? null,
-    annotation_count: highlightCount + memoCount,
+    annotation_count: highlightCount + noteCount,
     highlight_count: highlightCount,
-    memo_count: memoCount,
+    note_count: noteCount,
     last_synced_at: options.syncedAt,
     tags: ["kindle", "reading"],
     // Always explicitly reset (never omitted) so a normal sync
@@ -111,7 +111,7 @@ function renderHeader(book: KindleBook, displayCoverImage: boolean): string {
   if (book.amazonUrl) {
     lines.push(`**Amazon:** [Open book page](${book.amazonUrl})`);
   }
-  lines.push("", "## Highlights and Memos");
+  lines.push("", "## Highlights and Notes");
 
   return lines.join("\n");
 }
@@ -125,10 +125,10 @@ function renderAnnotations(annotations: KindleAnnotation[]): string {
 
 function renderAnnotation(annotation: KindleAnnotation): string {
   const heading =
-    annotation.type === "memo"
-      ? "Memo"
-      : annotation.memo !== undefined
-        ? "Highlight with Memo"
+    annotation.type === "note"
+      ? "Note"
+      : annotation.note !== undefined
+        ? "Highlight with Note"
         : "Highlight";
 
   const lines: string[] = [
@@ -140,8 +140,8 @@ function renderAnnotation(annotation: KindleAnnotation): string {
 
   if (annotation.type === "highlight") {
     lines.push(toBlockquote(annotation.text));
-    if (annotation.memo !== undefined) {
-      lines.push("", "**Memo**", "", annotation.memo);
+    if (annotation.note !== undefined) {
+      lines.push("", "**Note**", "", annotation.note);
     }
   } else {
     lines.push(annotation.text);

@@ -102,7 +102,7 @@ const annotation: KindleAnnotation = {
 };
 
 const renderOptions = { displayCoverImage: true, syncedAt: "2026-08-06T18:00:00+09:00" };
-const OUTPUT_FOLDER = "Highlight and Memo/Books";
+const OUTPUT_FOLDER = "Highlight and Note/Books";
 
 function buildRepository(vault: FakeVault) {
   return new BookNoteRepository(
@@ -123,20 +123,20 @@ describe("BookNoteRepository", () => {
   it("creates the output folder (including nested segments) if missing", async () => {
     const repo = buildRepository(vault);
     await repo.upsert(book, [annotation], renderOptions);
-    expect(vault.folders.has("Highlight and Memo")).toBe(true);
-    expect(vault.folders.has("Highlight and Memo/Books")).toBe(true);
+    expect(vault.folders.has("Highlight and Note")).toBe(true);
+    expect(vault.folders.has("Highlight and Note/Books")).toBe(true);
   });
 
   it("does not fail when the output folder already exists", async () => {
-    vault.folders.add("Highlight and Memo");
-    vault.folders.add("Highlight and Memo/Books");
+    vault.folders.add("Highlight and Note");
+    vault.folders.add("Highlight and Note/Books");
     const repo = buildRepository(vault);
     await expect(repo.upsert(book, [annotation], renderOptions)).resolves.toBe("created");
   });
 
   it("throws VaultFolderCreationError when a path segment is a file, not a folder", async () => {
-    vault.files.set("Highlight and Memo", {
-      path: "Highlight and Memo",
+    vault.files.set("Highlight and Note", {
+      path: "Highlight and Note",
       content: "",
       frontmatter: {},
     });
@@ -151,7 +151,7 @@ describe("BookNoteRepository", () => {
     const outcome = await repo.upsert(book, [annotation], renderOptions);
     expect(outcome).toBe("created");
 
-    const file = vault.files.get("Highlight and Memo/Books/Book Title.md");
+    const file = vault.files.get("Highlight and Note/Books/Book Title.md");
     expect(file).toBeDefined();
     expect(file?.frontmatter.kindle_book_id).toBe(book.id);
     expect(file?.frontmatter.title).toBe(book.title);
@@ -161,22 +161,22 @@ describe("BookNoteRepository", () => {
   });
 
   it("disambiguates the file name when an unrelated file already occupies the plain path", async () => {
-    vault.files.set("Highlight and Memo/Books/Book Title.md", {
-      path: "Highlight and Memo/Books/Book Title.md",
+    vault.files.set("Highlight and Note/Books/Book Title.md", {
+      path: "Highlight and Note/Books/Book Title.md",
       content: "unrelated note",
       frontmatter: {},
     });
     const repo = buildRepository(vault);
     await repo.upsert(book, [annotation], renderOptions);
 
-    expect(vault.files.has(`Highlight and Memo/Books/Book Title - ${book.asin}.md`)).toBe(true);
-    expect(vault.files.get("Highlight and Memo/Books/Book Title.md")?.content).toBe(
+    expect(vault.files.has(`Highlight and Note/Books/Book Title - ${book.asin}.md`)).toBe(true);
+    expect(vault.files.get("Highlight and Note/Books/Book Title.md")?.content).toBe(
       "unrelated note",
     );
   });
 
   it("finds an existing note by frontmatter kindle_book_id, not by file name", async () => {
-    const renamedPath = "Highlight and Memo/Books/Renamed By User.md";
+    const renamedPath = "Highlight and Note/Books/Renamed By User.md";
     vault.files.set(renamedPath, {
       path: renamedPath,
       content: `# Renamed\n\n${GENERATED_BLOCK_START}\n\nold content\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
@@ -187,12 +187,12 @@ describe("BookNoteRepository", () => {
     const outcome = await repo.upsert(book, [annotation], renderOptions);
 
     expect(outcome).toBe("updated");
-    expect(vault.files.has("Highlight and Memo/Books/Book Title.md")).toBe(false);
+    expect(vault.files.has("Highlight and Note/Books/Book Title.md")).toBe(false);
     expect(vault.files.get(renamedPath)?.content).toContain(annotation.text);
   });
 
   it("preserves user content outside the generated block on update", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     vault.files.set(path, {
       path,
       content: [
@@ -226,7 +226,7 @@ describe("BookNoteRepository", () => {
   });
 
   it("updates only the plugin-owned frontmatter keys, preserving other keys", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     vault.files.set(path, {
       path,
       content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\nold\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
@@ -241,8 +241,24 @@ describe("BookNoteRepository", () => {
     expect(updated?.frontmatter.title).toBe(book.title);
   });
 
+  it("deletes the legacy memo_count key on update, replacing it with note_count ('Memo' renamed to 'Note', 2026-08-10)", async () => {
+    const path = "Highlight and Note/Books/Book Title.md";
+    vault.files.set(path, {
+      path,
+      content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\nold\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
+      frontmatter: { kindle_book_id: book.id, memo_count: 3 },
+    });
+
+    const repo = buildRepository(vault);
+    await repo.upsert(book, [annotation], renderOptions);
+
+    const updated = vault.files.get(path);
+    expect(updated?.frontmatter.memo_count).toBeUndefined();
+    expect(updated?.frontmatter.note_count).toBe(0);
+  });
+
   it("throws GeneratedBlockMissingError and leaves the file untouched if markers were removed", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     const originalContent = "# Book Title\n\nNo markers here anymore.\n\n## My Notes\n";
     vault.files.set(path, {
       path,
@@ -258,7 +274,7 @@ describe("BookNoteRepository", () => {
   });
 
   it("throws GeneratedBlockMissingError when only the start marker survived (end marker deleted)", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     const originalContent = `# Book Title\n\n${GENERATED_BLOCK_START}\n\nold content, no end marker\n\n## My Notes\n`;
     vault.files.set(path, {
       path,
@@ -274,7 +290,7 @@ describe("BookNoteRepository", () => {
   });
 
   it("throws GeneratedBlockMissingError when only the end marker survived (start marker deleted)", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     const originalContent = `# Book Title\n\nno start marker\n\nold content\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`;
     vault.files.set(path, {
       path,
@@ -290,7 +306,7 @@ describe("BookNoteRepository", () => {
   });
 
   it("throws GeneratedBlockMissingError when the markers survived but in reversed order", async () => {
-    const path = "Highlight and Memo/Books/Book Title.md";
+    const path = "Highlight and Note/Books/Book Title.md";
     // A user could plausibly reorder content by hand; end-before-start
     // must never be treated as a valid (empty) region to overwrite.
     const originalContent = `# Book Title\n\n${GENERATED_BLOCK_END}\n\nswapped\n\n${GENERATED_BLOCK_START}\n\n## My Notes\n`;
@@ -335,7 +351,7 @@ describe("BookNoteRepository", () => {
     });
 
     it("clears an existing note's generated block to a placeholder when its annotations drop to zero", async () => {
-      const path = "Highlight and Memo/Books/Book Title.md";
+      const path = "Highlight and Note/Books/Book Title.md";
       vault.files.set(path, {
         path,
         content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\n${annotation.text}\n\n${GENERATED_BLOCK_END}\n\n## My Notes\n`,
@@ -348,7 +364,7 @@ describe("BookNoteRepository", () => {
       expect(outcome).toBe("updated");
       const updated = vault.files.get(path);
       expect(updated?.content).not.toContain(annotation.text);
-      expect(updated?.content).toContain("No highlights or memos found");
+      expect(updated?.content).toContain("No highlights or notes found");
     });
   });
 
@@ -358,7 +374,7 @@ describe("BookNoteRepository", () => {
     it("flags a managed note whose book id is missing from the current set, without touching its content", async () => {
       const repo = buildRepository(vault);
       await repo.upsert(book, [annotation], renderOptions);
-      const path = "Highlight and Memo/Books/Book Title.md";
+      const path = "Highlight and Note/Books/Book Title.md";
 
       const flaggedCount = await repo.flagRemovedBooks(new Set([otherBook.id]));
 
@@ -377,7 +393,7 @@ describe("BookNoteRepository", () => {
       const secondCount = await repo.flagRemovedBooks(new Set([otherBook.id]));
 
       expect(secondCount).toBe(0);
-      const path = "Highlight and Memo/Books/Book Title.md";
+      const path = "Highlight and Note/Books/Book Title.md";
       const content = vault.files.get(path)?.content ?? "";
       // The banner text appears exactly once, not duplicated.
       expect(content.split("no longer appears in your Kindle library")).toHaveLength(2);
@@ -390,7 +406,7 @@ describe("BookNoteRepository", () => {
 
       await repo.upsert(book, [annotation], renderOptions);
 
-      const path = "Highlight and Memo/Books/Book Title.md";
+      const path = "Highlight and Note/Books/Book Title.md";
       const healed = vault.files.get(path);
       expect(healed?.frontmatter.kindle_bridge_missing_from_library).toBe(false);
       expect(healed?.content).not.toContain("no longer appears in your Kindle library");
@@ -403,7 +419,7 @@ describe("BookNoteRepository", () => {
       const flaggedCount = await repo.flagRemovedBooks(new Set([book.id]));
 
       expect(flaggedCount).toBe(0);
-      const path = "Highlight and Memo/Books/Book Title.md";
+      const path = "Highlight and Note/Books/Book Title.md";
       // A normal upsert() already sets this explicitly to false (see
       // BookNoteRenderer.spec.ts) - it was never true to begin with.
       expect(vault.files.get(path)?.frontmatter.kindle_bridge_missing_from_library).toBe(false);

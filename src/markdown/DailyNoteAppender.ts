@@ -57,7 +57,7 @@ function buildSummaryLine(result: SyncResult): string {
     `${result.notesUpdated} updated`,
     `${result.notesFlaggedRemoved} flagged as removed`,
   ];
-  return `- 📚 Kindle Bridge: ${parts.join(", ")} (${result.highlightsFetched} highlights, ${result.memosFetched} memos)`;
+  return `- 📚 Kindle Bridge: ${parts.join(", ")} (${result.highlightsFetched} highlights, ${result.highlightNotesFetched} notes)`;
 }
 
 function appendLine(data: string, line: string): string {

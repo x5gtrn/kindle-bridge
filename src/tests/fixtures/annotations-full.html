@@ -1,6 +1,6 @@
 <!--
   Anonymized fixture approximating an Amazon Kindle notebook
-  highlights/memos page for a single book (Global region). Not
+  highlights/notes page for a single book (Global region). Not
   captured from a real account, but the DOM shape (container, hidden
   pagination inputs, per-row `id` + generic `a-row a-spacing-base`
   classes, #kp-annotation-location, #highlight, #note) was confirmed
@@ -8,10 +8,10 @@
   Amazon does not expose a page number or a per-annotation created
   date anywhere in this markup (confirmed the same day), so neither is
   covered here. Covers, in order:
-    ann-1: highlight only, no memo/location
-    ann-2: highlight + memo + location
-    ann-3: memo only (freestanding note, no underlying highlight)
-    ann-4: whitespace-only highlight and no memo - must be filtered out
+    ann-1: highlight only, no note/location
+    ann-2: highlight + note + location
+    ann-3: note only (freestanding note, no underlying highlight)
+    ann-4: whitespace-only highlight and no note - must be filtered out
 -->
 <!DOCTYPE html>
 <html lang="en">

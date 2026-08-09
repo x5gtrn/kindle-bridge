@@ -48,6 +48,12 @@ export class GeneratedBlockMissingError extends Error {
 
 const FRONTMATTER_BOOK_ID_KEY = "kindle_book_id";
 const FRONTMATTER_MISSING_KEY = "kindle_bridge_missing_from_library";
+/** Renamed to `note_count` when "Memo" was renamed to "Note" throughout
+ * (2026-08-10). `applyFrontmatter()` explicitly deletes this on every
+ * write so an existing note doesn't end up with both the old and new
+ * key - a plain `Object.assign()` merge would otherwise only ever add
+ * the new key, never remove the old one. */
+const LEGACY_MEMO_COUNT_FRONTMATTER_KEY = "memo_count";
 
 /** What KindleSyncService needs from the repository - kept as an
  * interface (rather than depending on the concrete class directly) so
@@ -178,9 +184,7 @@ export class BookNoteRepository implements BookNoteWriter {
     } catch {
       throw new MarkdownSaveError(path);
     }
-    await this.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-      Object.assign(fm, frontmatter);
-    });
+    await this.applyFrontmatter(file, frontmatter);
   }
 
   private async updateNote(
@@ -198,7 +202,18 @@ export class BookNoteRepository implements BookNoteWriter {
       }
       throw new MarkdownSaveError(file.path);
     }
+    await this.applyFrontmatter(file, frontmatter);
+  }
+
+  /** Shared by createNote()/updateNote(): merges the plugin-owned keys
+   * and deletes the legacy `memo_count` key, if present, so a renamed
+   * note doesn't end up with both `memo_count` and `note_count`. */
+  private async applyFrontmatter(
+    file: TFile,
+    frontmatter: Record<string, unknown>,
+  ): Promise<void> {
     await this.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+      delete fm[LEGACY_MEMO_COUNT_FRONTMATTER_KEY];
       Object.assign(fm, frontmatter);
     });
   }
