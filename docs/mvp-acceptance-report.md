@@ -249,7 +249,7 @@ items specifically. Additional checks run for this section:
 | Settings changes are saved | PASS | Every `KindleBridgeSettingTab` control's `onChange` calls `saveSettings()` |
 | Settings restored after restart | PASS (code) / NOT TESTED (live) | `loadSettings()` reads via `loadData()` + `normalizeSettings()` in `onload()` |
 | Manifest correct | **FIXED** | Was FAIL: `minAppVersion: "1.4.0"`, but the plugin calls `FileManager.processFrontMatter()`, which per Obsidian's own type declarations requires `@since 1.4.4`. A user on Obsidian 1.4.0-1.4.3 could have enabled the plugin and hit a runtime error on first sync. Fixed by bumping `manifest.json` and `versions.json` to `1.4.4` (the true maximum `@since` across every Obsidian API this plugin calls, individually verified) |
-| Plugin ID is `obsidian-kindle-bridge` | PASS | Confirmed in `manifest.json` |
+| Plugin ID is `kindle-bridge` | PASS | Confirmed in `manifest.json` |
 | Desktop-only flag correct | PASS | `isDesktopOnly: true`, consistent with the Electron `BrowserWindow` dependency |
 | Minimum Obsidian version reasonable | **FIXED** | See "Manifest correct" above - now `1.4.4` |
 | No sync blocking Obsidian startup | PASS | `onload()` only awaits `loadSettings()` (a data read); no auto-sync is triggered, matching the explicit MVP scope |

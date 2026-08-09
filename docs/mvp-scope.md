@@ -1,4 +1,4 @@
-# MVP Scope — Obsidian Kindle Bridge (Phase 0–3)
+# MVP Scope — Kindle Bridge (Phase 0–3)
 
 ## In scope for this milestone
 
@@ -59,7 +59,7 @@ Leveled logging (`error`/`warn`/`info`/`debug`) that never emits passwords, cook
 - Dataview integration. (No dedicated integration code is needed for this: Dataview queries any note's frontmatter directly, and this plugin's frontmatter - `kindle_book_id`, `highlight_count`, `tags`, etc. - is already queryable as-is. Deferred item, if ever revisited, would be finer-grained per-highlight querying, e.g. inline Dataview fields on each annotation block.)
 - ~~Automatic sync on Obsidian startup.~~ **Implemented in Phase 4 (2026-08-10)** - opt-in, off by default. See `docs/architecture.md` §8 and `docs/risks.md` R-19.
 - ~~Scheduled/timed automatic sync.~~ **Implemented in Phase 4 (2026-08-10)**, alongside sync-on-startup above - same settings toggle group, same silent-failure UX.
-- Support for Amazon regions beyond Japan and Global (though the region registry is built to make adding them low-effort).
+- ~~Support for Amazon regions beyond Japan and Global.~~ **Partially addressed in Phase 4 (2026-08-10)**: UK/DE/FR/ES/IT/NL added to the region registry (see `docs/architecture.md` §3), but - unlike Japan/Global - **not verified against any real account**; see `docs/risks.md` R-20.
 - Advanced sync cancellation (mid-flight cancel UI/token beyond the basic single-flight lock).
 - Community Plugin submission (directory listing, submission PR to `obsidian-releases`, etc.).
 - Mobile support (desktop-only by design, see `docs/risks.md` R-09).

@@ -1,6 +1,6 @@
-# Manual Test Checklist — Obsidian Kindle Bridge MVP
+# Manual Test Checklist — Kindle Bridge MVP
 
-This checklist covers everything the automated test suite (Vitest, 191 tests as of this
+This checklist covers everything the automated test suite (Vitest, 193 tests as of this
 writing) **cannot** verify: real Obsidian plugin loading, a real separate Chrome/Edge/
 Chromium/Brave browser process driven via CDP, real Amazon login/MFA/CAPTCHA, real
 network fetches, and real Markdown rendering inside Obsidian's editor. See
@@ -34,7 +34,7 @@ Notes:
 
 ### 1.2 Vault へのPlugin配置
 
-**Steps:** Create (or locate) `<vault>/.obsidian/plugins/obsidian-kindle-bridge/`. Copy `manifest.json`, `main.js`, and (if present) `styles.css` into it.
+**Steps:** Create (or locate) `<vault>/.obsidian/plugins/kindle-bridge/`. Copy `manifest.json`, `main.js`, and (if present) `styles.css` into it.
 
 Expected result: The three files exist under that path in the test vault.
 Actual result:
@@ -43,7 +43,7 @@ Notes:
 
 ### 1.3 Community Plugins での有効化
 
-**Steps:** Open Obsidian → Settings → Community plugins. If needed, turn off Restricted Mode. Find "Obsidian Kindle Bridge" in the installed list and enable it.
+**Steps:** Open Obsidian → Settings → Community plugins. If needed, turn off Restricted Mode. Find "Kindle Bridge" in the installed list and enable it.
 
 Expected result: The plugin appears in the list with the correct name and can be toggled on without an error dialog.
 Actual result:
@@ -54,7 +54,7 @@ Notes:
 
 **Steps:** With the plugin enabled, open the Developer Console. Reload Obsidian (Cmd/Ctrl+R) or disable+re-enable the plugin.
 
-Expected result: No uncaught exceptions or red error lines referencing `obsidian-kindle-bridge` or `main.js` appear on load.
+Expected result: No uncaught exceptions or red error lines referencing `kindle-bridge` or `main.js` appear on load.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -135,13 +135,22 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
+### 2.9 追加リージョンの表示 - Phase 4 (selection only, not a real sync test)
+
+**Steps:** Open the "Amazon region" dropdown. Confirm all 8 regions appear, with United Kingdom/Germany/France/Spain/Italy/Netherlands each labeled "(unverified)".
+
+Expected result: All 8 options are selectable; the 6 new ones are visually distinguishable as unverified right in the dropdown, not just in docs. **Do not** attempt to actually sign in/sync against one of these regions unless you have a real account in that locale and are specifically trying to help verify it (see `docs/risks.md` R-20) - this step only confirms the dropdown itself, not real functionality.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
 ---
 
 ## 3. Authentication
 
 ### 3.1 Sign in
 
-**Steps:** Run command "Kindle Bridge: Sign in to Amazon" (or the equivalent shown in the Command Palette - the displayed name will be prefixed with the plugin's full name, "Obsidian Kindle Bridge"). Confirm the dialog, then complete Amazon's real login page in the window that opens.
+**Steps:** Run command "Kindle Bridge: Sign in to Amazon" (or the equivalent shown in the Command Palette - the displayed name will be prefixed with the plugin's full name, "Kindle Bridge"). Confirm the dialog, then complete Amazon's real login page in the window that opens.
 
 Expected result: A confirmation modal appears first (no email/password/OTP fields in it), followed by a Notice that a browser window is opening. A real, separate Chrome/Edge/Chromium/Brave window then opens showing Amazon's actual sign-in page. After successfully signing in and landing on the Kindle notebook/reader page, the window closes itself and a "signed in" Notice appears in Obsidian.
 Actual result:
@@ -504,7 +513,7 @@ While performing the tests above, especially 2.5 (debug logging) and 3.1-3.6 (au
 - [ ] Confirm no line in the console contains anything that looks like a raw cookie value, session token, or `Authorization:` header value.
 - [ ] Confirm no line contains your Amazon password or an OTP code you typed.
 - [ ] Confirm no line contains the full text of one of your highlights or memos (short excerpts in error messages referencing a book *title* are expected and fine; full highlight/memo bodies are not).
-- [ ] Open `<vault>/.obsidian/plugins/obsidian-kindle-bridge/data.json` in a text editor after signing in and syncing. Confirm it contains only the four settings fields (region, output folder, display toggle, debug toggle) - no cookies, tokens, or credentials.
+- [ ] Open `<vault>/.obsidian/plugins/kindle-bridge/data.json` in a text editor after signing in and syncing. Confirm it contains only the four settings fields (region, output folder, display toggle, debug toggle) - no cookies, tokens, or credentials.
 
 ---
 
