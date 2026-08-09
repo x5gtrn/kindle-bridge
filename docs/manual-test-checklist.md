@@ -144,6 +144,24 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
+### 2.10 Account section buttons (sign in / status / sync)
+
+**Steps:** Open plugin settings. Confirm an "Account" section appears below "Amazon region", containing: a "Sign in to Amazon" button, a "Sign-in status" item with a "Check status" button, and a "Sync now" button. Click "Sign in" and confirm it behaves identically to running the "Kindle Bridge: Sign in to Amazon" command (same confirmation modal, same browser window flow - see §3.1). Click "Check status" and confirm the status text updates to reflect whether you're currently signed in for the selected region (a hidden browser window should open briefly while checking). Click "Sync now" and confirm it behaves identically to running "Kindle Bridge: Sync now" (see §4.1), including the completion Notice and `SyncProgressModal`.
+
+Expected result: All three controls work exactly like their Command Palette equivalents; buttons disable themselves with a "Checking.../Syncing..." label while their operation is in flight and re-enable afterward; the status text reflects reality (matches what §3.4/§3.5 would show).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 2.11 Sign-in status after sign-out
+
+**Steps:** Following on from 2.10, run "Kindle Bridge: Sign out from Amazon" (Command Palette), then click "Check status" in settings again.
+
+Expected result: Status text now reports not signed in (or session expired) for the selected region.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
 ---
 
 ## 3. Authentication

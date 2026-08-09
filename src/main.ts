@@ -170,7 +170,7 @@ export default class KindleBridgePlugin extends Plugin {
     );
   }
 
-  private runSignIn(): void {
+  runSignIn(): void {
     let region;
     try {
       region = this.currentRegion();
@@ -209,6 +209,18 @@ export default class KindleBridgePlugin extends Plugin {
     }
   }
 
+  /**
+   * Public (not private): also called directly from
+   * `KindleBridgeSettingTab`'s "Check status" button, which launches a
+   * real hidden browser process to check where the notebook page
+   * redirects (see `AmazonSessionService`) - not free, so this is
+   * deliberately button-triggered rather than run automatically every
+   * time the settings tab is opened.
+   */
+  async checkSignInStatus(): Promise<boolean> {
+    return this.sessionService.isSessionValid(this.currentRegion());
+  }
+
   private async runSignOut(): Promise<void> {
     try {
       await this.authService.signOut(this.currentRegion());
@@ -228,7 +240,7 @@ export default class KindleBridgePlugin extends Plugin {
    * focus at startup or mid-work every interval would be disruptive;
    * the Notice (and the Daily Note summary, if enabled) are enough.
    */
-  private async runSync(triggeredAutomatically = false): Promise<void> {
+  async runSync(triggeredAutomatically = false): Promise<void> {
     try {
       const region = this.currentRegion();
       const bookNoteRepository = new BookNoteRepository(

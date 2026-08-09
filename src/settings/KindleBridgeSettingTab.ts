@@ -10,6 +10,9 @@ import {
 export interface KindleBridgeSettingsHost {
   settings: KindleBridgeSettings;
   saveSettings(): Promise<void>;
+  runSignIn(): void;
+  runSync(): Promise<void>;
+  checkSignInStatus(): Promise<boolean>;
 }
 
 export class KindleBridgeSettingTab extends PluginSettingTab {
@@ -35,6 +38,59 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
         dropdown.onChange(async (value) => {
           this.host.settings.amazonRegion = value;
           await this.host.saveSettings();
+        });
+      });
+
+    new Setting(containerEl).setName("Account").setHeading();
+
+    new Setting(containerEl)
+      .setName("Sign in to Amazon")
+      .setDesc(
+        'Opens a real, separate Amazon sign-in page in its own browser window for the region selected above. Also available from the Command Palette as "Kindle Bridge: Sign in to Amazon".',
+      )
+      .addButton((button) => {
+        button.setButtonText("Sign in").onClick(() => {
+          this.host.runSignIn();
+        });
+      });
+
+    const statusSetting = new Setting(containerEl)
+      .setName("Sign-in status")
+      .setDesc('Not checked yet. Click "Check status" to check.');
+    statusSetting.addButton((button) => {
+      button.setButtonText("Check status").onClick(async () => {
+        button.setDisabled(true).setButtonText("Checking...");
+        statusSetting.setDesc("Checking - this briefly opens a hidden browser window...");
+        try {
+          const signedIn = await this.host.checkSignInStatus();
+          statusSetting.setDesc(
+            signedIn
+              ? "Signed in to Amazon for the region selected above."
+              : "Not signed in (or the session has expired) for the region selected above.",
+          );
+        } catch (error) {
+          statusSetting.setDesc(
+            `Could not check sign-in status: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        } finally {
+          button.setDisabled(false).setButtonText("Check status");
+        }
+      });
+    });
+
+    new Setting(containerEl)
+      .setName("Sync now")
+      .setDesc(
+        'Fetch highlights and notes from Amazon and update your book notes. Also available from the Command Palette (and the ribbon icon) as "Kindle Bridge: Sync now".',
+      )
+      .addButton((button) => {
+        button.setButtonText("Sync now").onClick(async () => {
+          button.setDisabled(true).setButtonText("Syncing...");
+          try {
+            await this.host.runSync();
+          } finally {
+            button.setDisabled(false).setButtonText("Sync now");
+          }
         });
       });
 
