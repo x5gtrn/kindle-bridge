@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-kindle-bridge",
+  "name": "kindle-bridge",
   "version": "0.1.0",
   "description": "Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your Obsidian vault.",
   "main": "main.js",

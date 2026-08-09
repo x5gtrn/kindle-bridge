@@ -45,7 +45,7 @@ describe("normalizeSettings", () => {
   });
 
   it("falls back to the default region for an unknown region id", () => {
-    const result = normalizeSettings({ amazonRegion: "uk" });
+    const result = normalizeSettings({ amazonRegion: "br" });
     expect(result.amazonRegion).toBe(DEFAULT_SETTINGS.amazonRegion);
   });
 

@@ -1,0 +1,39 @@
+name: Release Obsidian plugin
+
+# Runs only when a version tag is pushed (e.g. "1.0.0", matching
+# manifest.json's "version" field exactly - no "v" prefix, per
+# Obsidian's documented release process). Pushing the tag is a
+# separate, deliberate step the maintainer takes; committing this
+# workflow file does nothing by itself. See docs/community-plugin-checklist.md.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Create a draft GitHub Release with the plugin's build artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --draft \
+            --generate-notes \
+            main.js manifest.json
