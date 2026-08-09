@@ -8,13 +8,21 @@ import {
 
 /** What this settings tab needs from the plugin instance that owns it. */
 export interface KindleBridgeSettingsHost {
-  settings: KindleBridgeSettings;
+  pluginSettings: KindleBridgeSettings;
   saveSettings(): Promise<void>;
   runSignIn(): void;
   runSync(): Promise<void>;
   checkSignInStatus(): Promise<boolean>;
 }
 
+/**
+ * Uses the classic `display()`-based PluginSettingTab, not the newer
+ * declarative `getSettingDefinitions()` API (which would make these
+ * settings appear in Obsidian's in-app settings search on 1.13.0+).
+ * Deliberately not adopted: it requires minAppVersion 1.13.0, and this
+ * plugin intentionally supports back to 1.4.4 (see versions.json) - a
+ * known, accepted trade-off, not an oversight.
+ */
 export class KindleBridgeSettingTab extends PluginSettingTab {
   constructor(
     app: App,
@@ -34,9 +42,9 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
         for (const region of listAmazonRegions()) {
           dropdown.addOption(region.id, region.label);
         }
-        dropdown.setValue(this.host.settings.amazonRegion);
+        dropdown.setValue(this.host.pluginSettings.amazonRegion);
         dropdown.onChange(async (value) => {
-          this.host.settings.amazonRegion = value;
+          this.host.pluginSettings.amazonRegion = value;
           await this.host.saveSettings();
         });
       });
@@ -46,7 +54,7 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sign in to Amazon")
       .setDesc(
-        'Opens a real, separate Amazon sign-in page in its own browser window for the region selected above. Also available from the Command Palette as "Kindle Bridge: Sign in to Amazon".',
+        'Opens a real, separate Amazon sign-in page in its own browser window for the region selected above. Also available from the command palette as "Kindle Bridge: Sign in to Amazon".',
       )
       .addButton((button) => {
         button.setButtonText("Sign in").onClick(() => {
@@ -56,7 +64,7 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
 
     const statusSetting = new Setting(containerEl)
       .setName("Sign-in status")
-      .setDesc('Not checked yet. Click "Check status" to check.');
+      .setDesc('Not checked yet. Click "check status" to check.');
     statusSetting.addButton((button) => {
       button.setButtonText("Check status").onClick(async () => {
         button.setDisabled(true).setButtonText("Checking...");
@@ -81,7 +89,7 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync now")
       .setDesc(
-        'Fetch highlights and notes from Amazon and update your book notes. Also available from the Command Palette (and the ribbon icon) as "Kindle Bridge: Sync now".',
+        'Fetch highlights and notes from Amazon and update your book notes. Also available from the command palette (and the ribbon icon) as "Kindle Bridge: Sync now".',
       )
       .addButton((button) => {
         button.setButtonText("Sync now").onClick(async () => {
@@ -100,9 +108,9 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .addText((text) => {
         text
           .setPlaceholder("Highlight and Note/Books")
-          .setValue(this.host.settings.outputFolder)
+          .setValue(this.host.pluginSettings.outputFolder)
           .onChange(async (value) => {
-            this.host.settings.outputFolder = value;
+            this.host.pluginSettings.outputFolder = value;
             await this.host.saveSettings();
           });
       });
@@ -111,8 +119,8 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .setName("Display cover image")
       .setDesc("Show the book cover (linked to the Amazon URL) in generated notes.")
       .addToggle((toggle) => {
-        toggle.setValue(this.host.settings.displayCoverImage).onChange(async (value) => {
-          this.host.settings.displayCoverImage = value;
+        toggle.setValue(this.host.pluginSettings.displayCoverImage).onChange(async (value) => {
+          this.host.pluginSettings.displayCoverImage = value;
           await this.host.saveSettings();
         });
       });
@@ -123,8 +131,8 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
         "Log extra detail to the developer console to help diagnose sync issues. Credentials, cookies, and annotation text are always masked.",
       )
       .addToggle((toggle) => {
-        toggle.setValue(this.host.settings.debugLogging).onChange(async (value) => {
-          this.host.settings.debugLogging = value;
+        toggle.setValue(this.host.pluginSettings.debugLogging).onChange(async (value) => {
+          this.host.pluginSettings.debugLogging = value;
           await this.host.saveSettings();
         });
       });
@@ -135,8 +143,8 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
         "Append a short sync summary line to today's Daily Note (only if it already exists - this plugin never creates it). Uses the folder/date format below, not Obsidian's own Daily Notes settings, so make sure they match if you want the line in the same file.",
       )
       .addToggle((toggle) => {
-        toggle.setValue(this.host.settings.dailyNoteSummaryEnabled).onChange(async (value) => {
-          this.host.settings.dailyNoteSummaryEnabled = value;
+        toggle.setValue(this.host.pluginSettings.dailyNoteSummaryEnabled).onChange(async (value) => {
+          this.host.pluginSettings.dailyNoteSummaryEnabled = value;
           await this.host.saveSettings();
         });
       });
@@ -147,9 +155,9 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .addText((text) => {
         text
           .setPlaceholder("Daily Notes")
-          .setValue(this.host.settings.dailyNoteFolder)
+          .setValue(this.host.pluginSettings.dailyNoteFolder)
           .onChange(async (value) => {
-            this.host.settings.dailyNoteFolder = value;
+            this.host.pluginSettings.dailyNoteFolder = value;
             await this.host.saveSettings();
           });
       });
@@ -160,9 +168,9 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .addText((text) => {
         text
           .setPlaceholder("YYYY-MM-DD")
-          .setValue(this.host.settings.dailyNoteDateFormat)
+          .setValue(this.host.pluginSettings.dailyNoteDateFormat)
           .onChange(async (value) => {
-            this.host.settings.dailyNoteDateFormat = value;
+            this.host.pluginSettings.dailyNoteDateFormat = value;
             await this.host.saveSettings();
           });
       });
@@ -170,11 +178,11 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Sync on startup")
       .setDesc(
-        "Automatically run a sync once Obsidian finishes loading. Failures (not signed in, session expired, network error) are logged only, never shown as a Notice - only a successful sync is. Takes effect after reloading the plugin/restarting Obsidian.",
+        "Automatically run a sync once Obsidian finishes loading. Failures (not signed in, session expired, network error) are logged only, never shown as a notice - only a successful sync is. Takes effect after reloading the plugin/restarting Obsidian.",
       )
       .addToggle((toggle) => {
-        toggle.setValue(this.host.settings.autoSyncOnStartup).onChange(async (value) => {
-          this.host.settings.autoSyncOnStartup = value;
+        toggle.setValue(this.host.pluginSettings.autoSyncOnStartup).onChange(async (value) => {
+          this.host.pluginSettings.autoSyncOnStartup = value;
           await this.host.saveSettings();
         });
       });
@@ -185,8 +193,8 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
         "Automatically run a sync on a fixed interval while Obsidian is open, in addition to (or instead of) sync on startup. Same silent-failure behavior as above. Takes effect after reloading the plugin/restarting Obsidian.",
       )
       .addToggle((toggle) => {
-        toggle.setValue(this.host.settings.autoSyncIntervalEnabled).onChange(async (value) => {
-          this.host.settings.autoSyncIntervalEnabled = value;
+        toggle.setValue(this.host.pluginSettings.autoSyncIntervalEnabled).onChange(async (value) => {
+          this.host.pluginSettings.autoSyncIntervalEnabled = value;
           await this.host.saveSettings();
         });
       });
@@ -199,10 +207,9 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
       .addSlider((slider) => {
         slider
           .setLimits(AUTO_SYNC_MIN_INTERVAL_MINUTES, AUTO_SYNC_MAX_INTERVAL_MINUTES, 15)
-          .setValue(this.host.settings.autoSyncIntervalMinutes)
-          .setDynamicTooltip()
+          .setValue(this.host.pluginSettings.autoSyncIntervalMinutes)
           .onChange(async (value) => {
-            this.host.settings.autoSyncIntervalMinutes = value;
+            this.host.pluginSettings.autoSyncIntervalMinutes = value;
             await this.host.saveSettings();
           });
       });

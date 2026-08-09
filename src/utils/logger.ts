@@ -88,7 +88,11 @@ export class Logger {
         console.warn(message);
         return;
       default:
-        console.log(message);
+        // Obsidian's guidelines only allow warn/error/debug console
+        // methods (console.log/info are disallowed) - info-level
+        // messages are routed here too, since this is still the most
+        // appropriate of the three for non-error sync progress detail.
+        console.debug(message);
     }
   }
 }
