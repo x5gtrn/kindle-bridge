@@ -1,10 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { readlinkSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { findBrowserExecutable } from "./browserExecutable";
 import { CdpConnection } from "./CdpConnection";
 
 const DEVTOOLS_WS_PATTERN = /DevTools listening on (ws:\/\/\S+)/;
 const LAUNCH_TIMEOUT_MS = 20 * 1000;
 const SELECTOR_POLL_INTERVAL_MS = 300;
+/** The three files Chrome's ProcessSingleton mechanism uses (POSIX
+ * only) - see clearStaleSingletonLock() below. */
+const SINGLETON_FILE_NAMES = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,6 +26,68 @@ export function extractDevToolsUrl(stderrText: string): string | undefined {
 export interface CdpLaunchOptions {
   userDataDir: string;
   headless: boolean;
+}
+
+/**
+ * Chrome's `SingletonLock` is a symlink (POSIX only - Chrome uses a
+ * named mutex on Windows instead, so this is a no-op there) shaped
+ * like `<hostname>-<pid>`, which Chrome uses to detect whether another
+ * process already owns a given `--user-data-dir` before starting -
+ * confirmed live (2026-08-10): a stale one left over from an earlier
+ * crashed/leaked process makes every subsequent launch fail with
+ * "Failed to create a ProcessSingleton... Aborting now to avoid
+ * profile corruption," even though nothing is actually still running.
+ *
+ * This plugin's own design never intentionally runs two browser
+ * processes against the same profile directory concurrently
+ * (`SyncCoordinator`'s single-flight lock; one headless launch per
+ * operation; `launch()`'s own try/catch already kills the process on
+ * a post-spawn failure - see below). So any lock found here is either
+ * already stale, or - more cautiously assumed - still legitimately
+ * alive; only the confirmed-stale case is safe to clear automatically,
+ * checked via a signal-0 `process.kill()` (tests liveness without
+ * sending a real signal). If the referenced process is still alive,
+ * this deliberately leaves the lock alone and lets Chrome's own
+ * failure surface as before - force-launching a second process
+ * against a genuinely in-use profile is exactly the corruption
+ * scenario Chrome's own check exists to prevent.
+ */
+export function clearStaleSingletonLock(userDataDir: string): void {
+  if (process.platform === "win32") {
+    return;
+  }
+
+  let target: string;
+  try {
+    target = readlinkSync(join(userDataDir, "SingletonLock"));
+  } catch {
+    return; // No lock, or not a symlink - nothing to clean up.
+  }
+
+  const pid = Number(target.slice(target.lastIndexOf("-") + 1));
+  if (!Number.isInteger(pid) || isProcessAlive(pid)) {
+    return;
+  }
+
+  for (const name of SINGLETON_FILE_NAMES) {
+    try {
+      rmSync(join(userDataDir, name), { force: true });
+    } catch {
+      // Best-effort - if this fails, launch() proceeds and Chrome's
+      // own error (if any) surfaces exactly as it did before this fix.
+    }
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // ESRCH = no such process, i.e. confirmed dead. Any other error
+    // (e.g. EPERM) means we can't prove it's dead, so assume alive.
+    return (error as NodeJS.ErrnoException).code !== "ESRCH";
+  }
 }
 
 // Property-typed (not method-shorthand) throughout this interface so
@@ -92,6 +159,7 @@ export class CdpBrowser {
   // Property-typed (not method-shorthand) so test mocks (vi.mocked(...))
   // can reference it without tripping @typescript-eslint/unbound-method.
   static launch = async (options: CdpLaunchOptions): Promise<CdpBrowser> => {
+    clearStaleSingletonLock(options.userDataDir);
     const executablePath = findBrowserExecutable();
     const args = [
       `--user-data-dir=${options.userDataDir}`,
