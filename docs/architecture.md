@@ -154,11 +154,11 @@ This is the third approach tried for sign-in, not the first - see `docs/risks.md
 - `settings/`: `KindleBridgeSettingTab extends PluginSettingTab` renders controls and delegates persistence to `main.ts`'s `loadData()`/`saveData()` wrapper; `KindleBridgeSettings.ts` defines the schema + defaults + a pure validate/migrate function.
 - `ui/LoginModal` and `ui/SyncProgressModal` extend Obsidian's `Modal`; they only render state handed to them by `sync/SyncCoordinator` (via callbacks/state object), containing no business logic themselves.
 - `sync/SyncCoordinator` is the single entry point invoked by commands/ribbon; it depends on `amazon/*` and `markdown/*` interfaces and on a small `NotifierPort` (implemented with Obsidian `Notice`) so it can be unit tested by injecting a fake notifier — it does not import `obsidian` types beyond that port interface.
+- **Automatic/scheduled sync (Phase 4, implemented 2026-08-10 - see `docs/risks.md` R-19)**: `main.ts`'s `onload()` calls `this.app.workspace.onLayoutReady()` (startup) and, separately, registers a `window.setInterval()` via `this.registerInterval()` (Obsidian's own tracked-interval API, auto-cleared on unload) - both officially typed APIs, both opt-in via settings and off by default. Both just call the existing `runSync()`, now with a `triggeredAutomatically` flag: `SyncCoordinator`'s single-flight lock and `KindleReaderClient`'s request discipline are entirely unaware of what triggered a sync, so no orchestration logic changed - only `main.ts`'s failure UX branches on the flag (silent log-only failure for automatic runs vs. the existing `Notice`-based UX for manual ones, confirmed with the user so a stale session doesn't nag every startup/interval). `autoSyncIntervalMinutes` is clamped to `[15, 360]` both in the settings UI (a `SliderComponent`) and in `normalizeSettings()`, so automatic sync can never be configured to poll Amazon more aggressively than a deliberate manual sync would.
 
 ## 9. Future extension points (not built now, but designed for)
 
 - **Additional regions**: add an entry to the `AmazonRegion` registry + a settings dropdown option + fixtures; no parser code changes expected since parsers are structure-based, not domain-based (locale only affects date parsing, already isolated in one function).
-- **Automatic/scheduled sync**: `SyncCoordinator.sync()` is already the single re-entrant-safe entry point (guarded by an internal lock per spec); a future scheduler just needs to call it on a timer/`workspace.on('layout-ready')`/etc.
 
 ## 10. Directory structure
 

@@ -1,6 +1,6 @@
 # Manual Test Checklist — Obsidian Kindle Bridge MVP
 
-This checklist covers everything the automated test suite (Vitest, 186 tests as of this
+This checklist covers everything the automated test suite (Vitest, 191 tests as of this
 writing) **cannot** verify: real Obsidian plugin loading, a real separate Chrome/Edge/
 Chromium/Brave browser process driven via CDP, real Amazon login/MFA/CAPTCHA, real
 network fetches, and real Markdown rendering inside Obsidian's editor. See
@@ -122,6 +122,15 @@ Notes:
 **Steps:** Enable "Daily Note summary". Set "Daily Note folder" and "Daily Note date format" to match your real Daily Notes plugin settings (Settings → Daily notes, if you use it).
 
 Expected result: The three new fields (toggle, folder, date format) save and persist like any other setting; the description text under the toggle clearly states this plugin never creates the Daily Note and uses its own settings, not Obsidian's real Daily Notes configuration.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 2.8 自動/定期同期の設定 - Phase 4
+
+**Steps:** Open Settings. Confirm "Sync on startup", "Automatic interval sync" (both toggles), and "Sync interval (minutes)" (a slider) are present and save correctly. Try dragging the slider - confirm it only allows 15-360 in 15-minute steps (can't be set below 15 or above 360 from the UI).
+
+Expected result: All three settings save/persist normally; the slider makes an invalid (too-short) interval impossible to select from the UI.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -310,6 +319,42 @@ Notes:
 **Steps:** Make sure today's Daily Note does **not** exist yet (delete it if a previous test created one, or pick a date format that resolves to a nonexistent file). With "Daily Note summary" enabled, run a sync that creates/updates a note.
 
 Expected result: The sync completes normally (Notice + modal as usual) and **no Daily Note file is created** - this plugin never creates it, only appends to an existing one. No error is shown to the user even though nothing was appended.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.14 起動時の自動同期 (sync on startup) - Phase 4
+
+**Steps:** Enable "Sync on startup" (2.8). Fully quit and relaunch Obsidian.
+
+Expected result: A sync runs automatically shortly after Obsidian finishes loading - the completion Notice appears (e.g. "sync complete (...)"), but **no `SyncProgressModal` popup** (that's manual-sync-only, so it doesn't interrupt startup).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.15 定期同期 (interval sync) - Phase 4
+
+**Steps:** Enable "Automatic interval sync" with the interval slider at its minimum (15 minutes). Reload the plugin (or restart Obsidian) so the new interval is registered. Leave Obsidian open and wait.
+
+Expected result: A sync runs automatically roughly every 15 minutes without any manual trigger, each showing the same completion Notice as 4.14 (no modal).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.16 自動同期の失敗は静かに (silent failure on automatic sync) - Phase 4
+
+**Steps:** Sign out from Amazon (or otherwise let your session expire). With "Sync on startup" or interval sync enabled, trigger an automatic sync (restart Obsidian, or wait for the interval).
+
+Expected result: **No error Notice appears** - the sync fails silently. Open the Developer Console with debug logging enabled (2.5) and confirm a log line describing the failure (e.g. "Automatic sync skipped - the Amazon session has expired." or "Automatic sync failed"). Then manually run "Sync now" with the same expired session and confirm it **does** show the usual error Notice - only automatically-triggered failures are silent.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.17 間隔設定変更の反映タイミング (Phase 4)
+
+**Steps:** With interval sync already enabled and running, change "Sync interval (minutes)" to a different value without reloading the plugin.
+
+Expected result: The change saves, but the **already-running interval keeps firing at the old value** until the plugin is reloaded or Obsidian is restarted - this is a documented limitation (see the setting's description text), not a bug.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:

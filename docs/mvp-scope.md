@@ -57,8 +57,8 @@ Leveled logging (`error`/`warn`/`info`/`debug`) that never emits passwords, cook
 - Differential/incremental update logic beyond the simple "regenerate the generated block" approach (no line-level diffing, no per-annotation change detection beyond regenerating the whole block).
 - ~~Daily Notes integration.~~ **Implemented in Phase 4 (2026-08-07)** - see `docs/architecture.md` §7 and `docs/risks.md` R-18. Opt-in, uses its own settings rather than Obsidian's real Daily Notes plugin config (no official API exists for that).
 - Dataview integration. (No dedicated integration code is needed for this: Dataview queries any note's frontmatter directly, and this plugin's frontmatter - `kindle_book_id`, `highlight_count`, `tags`, etc. - is already queryable as-is. Deferred item, if ever revisited, would be finer-grained per-highlight querying, e.g. inline Dataview fields on each annotation block.)
-- Automatic sync on Obsidian startup.
-- Scheduled/timed automatic sync.
+- ~~Automatic sync on Obsidian startup.~~ **Implemented in Phase 4 (2026-08-10)** - opt-in, off by default. See `docs/architecture.md` §8 and `docs/risks.md` R-19.
+- ~~Scheduled/timed automatic sync.~~ **Implemented in Phase 4 (2026-08-10)**, alongside sync-on-startup above - same settings toggle group, same silent-failure UX.
 - Support for Amazon regions beyond Japan and Global (though the region registry is built to make adding them low-effort).
 - Advanced sync cancellation (mid-flight cancel UI/token beyond the basic single-flight lock).
 - Community Plugin submission (directory listing, submission PR to `obsidian-releases`, etc.).
