@@ -33,10 +33,15 @@ function fakeSessionService(valid: boolean): AmazonSessionService {
 function fakeBookNoteWriter(): BookNoteWriter & {
   upsert: ReturnType<typeof vi.fn>;
   flagRemovedBooks: ReturnType<typeof vi.fn>;
+  getLastSyncedAt: ReturnType<typeof vi.fn>;
 } {
   return {
     upsert: vi.fn().mockResolvedValue("created"),
     flagRemovedBooks: vi.fn().mockResolvedValue(0),
+    // undefined = "no existing note" by default, so every existing test
+    // (written before the needsSync() skip existed) keeps syncing every
+    // book exactly as before.
+    getLastSyncedAt: vi.fn().mockReturnValue(undefined),
   };
 }
 
@@ -321,5 +326,52 @@ describe("AmazonKindleSyncService", () => {
 
     expect(result.notesCreated).toBe(1);
     expect(result.errors).toBe(1);
+  });
+
+  it("skips the annotation fetch entirely for a book not annotated since its last sync", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    // books-jp.html: B0JPBOOK0001 has lastAnnotatedAt "2026-07-15";
+    // B0JPBOOK0002 has none. A last sync date of "2026-07-20" is after
+    // book 1's last-annotated date, so book 1 should be skipped; book 2
+    // has no lastAnnotatedAt at all, so it always needs a real sync.
+    bookNoteRepository.getLastSyncedAt.mockImplementation((bookId: string) =>
+      bookId === "B0JPBOOK0001" ? "2026-07-20T00:00:00.000Z" : undefined,
+    );
+    const fetchBookAnnotationsHtml = vi.fn().mockResolvedValue(annotationsHtml);
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml,
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(fetchBookAnnotationsHtml).toHaveBeenCalledTimes(1);
+    expect(fetchBookAnnotationsHtml).toHaveBeenCalledWith(region, "B0JPBOOK0002");
+    expect(bookNoteRepository.upsert).toHaveBeenCalledTimes(1);
+    expect(result.booksFound).toBe(2);
+    expect(result.skippedUpToDate).toBe(1);
+  });
+
+  it("still syncs a book annotated on the same UTC calendar day as its last sync", async () => {
+    const bookNoteRepository = fakeBookNoteWriter();
+    bookNoteRepository.getLastSyncedAt.mockImplementation((bookId: string) =>
+      bookId === "B0JPBOOK0001" ? "2026-07-15T23:59:59.999Z" : undefined,
+    );
+    const fetchBookAnnotationsHtml = vi.fn().mockResolvedValue(annotationsHtml);
+    const service = buildService({
+      readerClient: {
+        fetchBookListHtml: vi.fn().mockResolvedValue(booksHtml),
+        fetchBookAnnotationsHtml,
+      },
+      bookNoteRepository,
+    });
+
+    const result = await service.sync(region);
+
+    expect(fetchBookAnnotationsHtml).toHaveBeenCalledTimes(2);
+    expect(result.skippedUpToDate).toBe(0);
   });
 });

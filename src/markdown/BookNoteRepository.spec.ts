@@ -425,4 +425,30 @@ describe("BookNoteRepository", () => {
       expect(vault.files.get(path)?.frontmatter.kindle_bridge_missing_from_library).toBe(false);
     });
   });
+
+  describe("getLastSyncedAt", () => {
+    it("returns undefined for a book with no existing note", () => {
+      const repo = buildRepository(vault);
+      expect(repo.getLastSyncedAt(book.id)).toBeUndefined();
+    });
+
+    it("returns the last_synced_at frontmatter value from an existing note", async () => {
+      const repo = buildRepository(vault);
+      await repo.upsert(book, [annotation], renderOptions);
+
+      expect(repo.getLastSyncedAt(book.id)).toBe(renderOptions.syncedAt);
+    });
+
+    it("returns undefined when the frontmatter value isn't a string", () => {
+      const path = "Highlight and Note/Books/Book Title.md";
+      vault.files.set(path, {
+        path,
+        content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\n${GENERATED_BLOCK_END}\n`,
+        frontmatter: { kindle_book_id: book.id, last_synced_at: 12345 },
+      });
+      const repo = buildRepository(vault);
+
+      expect(repo.getLastSyncedAt(book.id)).toBeUndefined();
+    });
+  });
 });

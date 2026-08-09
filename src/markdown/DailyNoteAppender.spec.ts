@@ -34,6 +34,7 @@ function emptyResult(): SyncResult {
     highlightsFetched: 0,
     highlightNotesFetched: 0,
     skipped: 0,
+    skippedUpToDate: 0,
     notesFlaggedRemoved: 0,
     errors: 0,
   };

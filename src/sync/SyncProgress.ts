@@ -12,6 +12,12 @@ export interface SyncResult {
    * confuse with `notesCreated`/`notesUpdated` (book-note files) above. */
   highlightNotesFetched: number;
   skipped: number;
+  /** Books whose annotation fetch was skipped entirely this run because
+   * `lastAnnotatedAt` (Amazon's book-level date) was before the UTC
+   * calendar date of this book's own last successful sync - see
+   * `needsSync()`. Distinct from `skipped` above, which is about a book
+   * that *was* fetched but turned out to have nothing to write. */
+  skippedUpToDate: number;
   /** Notes newly flagged this run as "book no longer in your Kindle
    * library" - see BookNoteRepository.flagRemovedBooks() and
    * docs/risks.md R-13. Not a running total: a note already flagged in
@@ -28,6 +34,7 @@ export function emptySyncResult(): SyncResult {
     highlightsFetched: 0,
     highlightNotesFetched: 0,
     skipped: 0,
+    skippedUpToDate: 0,
     notesFlaggedRemoved: 0,
     errors: 0,
   };

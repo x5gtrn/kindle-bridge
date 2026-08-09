@@ -48,6 +48,7 @@ export class GeneratedBlockMissingError extends Error {
 
 const FRONTMATTER_BOOK_ID_KEY = "kindle_book_id";
 const FRONTMATTER_MISSING_KEY = "kindle_bridge_missing_from_library";
+const FRONTMATTER_LAST_SYNCED_AT_KEY = "last_synced_at";
 /** Renamed to `note_count` when "Memo" was renamed to "Note" throughout
  * (2026-08-10). `applyFrontmatter()` explicitly deletes this on every
  * write so an existing note doesn't end up with both the old and new
@@ -74,6 +75,12 @@ export interface BookNoteWriter {
    * flagged notes are skipped, so the returned count is only newly-
    * flagged notes this run. See docs/risks.md R-13. */
   flagRemovedBooks: (currentBookIds: Set<string>) => Promise<number>;
+  /** The `last_synced_at` frontmatter value from this book's existing
+   * note, if any - used by KindleSyncService (see `needsSync()`) to
+   * decide whether a fresh annotation fetch is even necessary this run.
+   * `undefined` for a book with no existing note (never synced) or a
+   * note missing/with a non-string value for that key. */
+  getLastSyncedAt: (bookId: string) => string | undefined;
 }
 
 /**
@@ -147,6 +154,17 @@ export class BookNoteRepository implements BookNoteWriter {
     }
 
     return flaggedCount;
+  }
+
+  getLastSyncedAt(bookId: string): string | undefined {
+    const existing = this.findExistingNote(bookId);
+    if (!existing) {
+      return undefined;
+    }
+    const value: unknown = this.metadataCache.getFileCache(existing)?.frontmatter?.[
+      FRONTMATTER_LAST_SYNCED_AT_KEY
+    ];
+    return typeof value === "string" ? value : undefined;
   }
 
   private findExistingNote(bookId: string): TFile | undefined {

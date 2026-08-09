@@ -12,6 +12,7 @@ import type { KindleAnnotation } from "../models/KindleAnnotation";
 import type { KindleBook } from "../models/KindleBook";
 import { nowIsoTimestamp } from "../utils/dates";
 import type { Logger } from "../utils/logger";
+import { needsSync } from "./needsSync";
 import { emptySyncResult, type SyncResult } from "./SyncProgress";
 
 /**
@@ -79,6 +80,7 @@ export class AmazonKindleSyncService implements KindleSyncService {
       notesCreated: result.notesCreated,
       notesUpdated: result.notesUpdated,
       skipped: result.skipped,
+      skippedUpToDate: result.skippedUpToDate,
       notesFlaggedRemoved: result.notesFlaggedRemoved,
       errors: result.errors,
     });
@@ -104,6 +106,17 @@ export class AmazonKindleSyncService implements KindleSyncService {
     result: SyncResult,
   ): Promise<void> {
     try {
+      const lastSyncedAt = this.deps.bookNoteRepository.getLastSyncedAt(book.id);
+      if (!needsSync(book.lastAnnotatedAt, lastSyncedAt)) {
+        this.deps.logger.debug(`Skipping book "${book.title}" - not annotated since its last sync`, {
+          bookId: book.id,
+          lastAnnotatedAt: book.lastAnnotatedAt,
+          lastSyncedAt,
+        });
+        result.skippedUpToDate += 1;
+        return;
+      }
+
       const annotations = await this.fetchBookAnnotations(book, region);
       result.highlightsFetched += annotations.filter((a) => a.type === "highlight").length;
       result.highlightNotesFetched += countNotes(annotations);

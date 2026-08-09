@@ -23,6 +23,7 @@ export class SyncProgressModal extends Modal {
       ["Highlights fetched", this.result.highlightsFetched],
       ["Highlight notes fetched", this.result.highlightNotesFetched],
       ["Skipped", this.result.skipped],
+      ["Already up to date", this.result.skippedUpToDate],
       ["Flagged as removed from library", this.result.notesFlaggedRemoved],
       ["Errors", this.result.errors],
     ];

@@ -237,7 +237,7 @@ Notes: _(This is a genuine open question our design didn't explicitly resolve - 
 
 **Steps:** With a valid session and at least one annotated book on Amazon, run "Sync now".
 
-Expected result: A Notice reports counts (created/updated/errors), and a `SyncProgressModal` opens showing the full breakdown (books found, notes created/updated, highlights/notes fetched, skipped, errors).
+Expected result: A Notice reports counts (created/updated/errors), and a `SyncProgressModal` opens showing the full breakdown (books found, notes created/updated, highlights/notes fetched, skipped, already up to date, errors).
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -246,7 +246,7 @@ Notes:
 
 **Steps:** Immediately run "Sync now" again without changing anything on Amazon.
 
-Expected result: The same book notes are **updated**, not duplicated - `notesUpdated` in the result should equal the book count from 4.1, `notesCreated` should be 0. Content inside the generated block should be equivalent (not duplicated) to before.
+Expected result: Depends on the test book's `last_annotated_at` date (Phase 4, 2026-08-10 - see §4.18 for a dedicated test of this): if it's dated **today (UTC)**, the note is **updated** again (`notesUpdated` increments, `notesCreated` stays 0), with generated-block content equivalent (not duplicated) to before. If it's dated an **earlier day**, the second sync instead **skips** the book entirely without re-fetching it (`skippedUpToDate` increments, not `notesUpdated`) - this is the new incremental-sync behavior, not a bug. Either way, the note itself must be unchanged (not duplicated) after the second sync.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -382,6 +382,24 @@ Notes:
 **Steps:** With interval sync already enabled and running, change "Sync interval (minutes)" to a different value without reloading the plugin.
 
 Expected result: The change saves, but the **already-running interval keeps firing at the old value** until the plugin is reloaded or Obsidian is restarted - this is a documented limitation (see the setting's description text), not a bug.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.18 Incremental sync skips a book not annotated since its last sync (Phase 4, 2026-08-10)
+
+**Steps:** Pick a book whose `last_annotated_at` frontmatter (and Amazon's own book list) is dated an earlier day than today (UTC) - i.e. not annotated today. Sync it at least once so it has a note with `last_synced_at` set. Wait until the next UTC day has genuinely started (or just confirm today's date is already past the book's `last_annotated_at`), then run "Sync now" again.
+
+Expected result: The `SyncProgressModal` shows a non-zero "Already up to date" count for this run, and `notesUpdated`/`highlightsFetched` do **not** increase for this book - its note content and `last_synced_at` are unchanged from before this run (a skipped book's `last_synced_at` is deliberately left untouched, not bumped to "now"). With debug logging on (§2.5), the console shows a "Skipping book ... - not annotated since its last sync" line for it.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.19 Incremental sync still syncs a newly-annotated book (Phase 4, 2026-08-10)
+
+**Steps:** Following on from 4.18, add a new highlight or note to that same book on Amazon (so its `last_annotated_at` becomes today's date), then run "Sync now" again.
+
+Expected result: This time the book is **not** skipped - it's fetched and its note is updated normally (`notesUpdated` increments, `skippedUpToDate` does not count this book), reflecting the new highlight/note.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
