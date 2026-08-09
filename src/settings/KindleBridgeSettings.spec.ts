@@ -18,12 +18,18 @@ describe("normalizeSettings", () => {
       outputFolder: "Books/Kindle",
       displayCoverImage: false,
       debugLogging: true,
+      dailyNoteSummaryEnabled: true,
+      dailyNoteFolder: "Journal",
+      dailyNoteDateFormat: "YYYY/MM/DD",
     });
     expect(result).toEqual({
       amazonRegion: "global",
       outputFolder: "Books/Kindle",
       displayCoverImage: false,
       debugLogging: true,
+      dailyNoteSummaryEnabled: true,
+      dailyNoteFolder: "Journal",
+      dailyNoteDateFormat: "YYYY/MM/DD",
     });
   });
 
@@ -44,5 +50,29 @@ describe("normalizeSettings", () => {
     });
     expect(result.displayCoverImage).toBe(DEFAULT_SETTINGS.displayCoverImage);
     expect(result.debugLogging).toBe(DEFAULT_SETTINGS.debugLogging);
+  });
+
+  it("treats an empty dailyNoteFolder as valid (vault root), unlike outputFolder", () => {
+    const result = normalizeSettings({ dailyNoteFolder: "" });
+    expect(result.dailyNoteFolder).toBe("");
+  });
+
+  it("falls back to the default dailyNoteFolder for a non-string value", () => {
+    const result = normalizeSettings({ dailyNoteFolder: 42 });
+    expect(result.dailyNoteFolder).toBe(DEFAULT_SETTINGS.dailyNoteFolder);
+  });
+
+  it("falls back to the default dailyNoteDateFormat for an empty/whitespace-only value", () => {
+    expect(normalizeSettings({ dailyNoteDateFormat: "" }).dailyNoteDateFormat).toBe(
+      DEFAULT_SETTINGS.dailyNoteDateFormat,
+    );
+    expect(normalizeSettings({ dailyNoteDateFormat: "   " }).dailyNoteDateFormat).toBe(
+      DEFAULT_SETTINGS.dailyNoteDateFormat,
+    );
+  });
+
+  it("ignores a wrong-typed dailyNoteSummaryEnabled field", () => {
+    const result = normalizeSettings({ dailyNoteSummaryEnabled: "yes" });
+    expect(result.dailyNoteSummaryEnabled).toBe(DEFAULT_SETTINGS.dailyNoteSummaryEnabled);
   });
 });

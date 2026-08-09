@@ -1,10 +1,26 @@
 import { join } from "node:path";
-import { App, FileSystemAdapter, Notice, Plugin } from "obsidian";
+import { App, FileSystemAdapter, Notice, Plugin, moment } from "obsidian";
+
+/**
+ * `obsidian`'s own `moment` export is a real, callable value at
+ * runtime (this is the standard, widely-used way Obsidian plugins
+ * format dates without bundling their own moment.js) - but
+ * obsidian.d.ts re-exports it as `export const moment: typeof Moment`
+ * from an `import * as Moment from 'moment'`, which this project's
+ * TypeScript/tsconfig combination resolves to a non-callable namespace
+ * type, not moment's actual callable-function-plus-namespace type.
+ * This is a third-party type-declaration friction, not a real
+ * constraint - narrowly recast here to the minimal shape actually used
+ * (a callable returning `.format()`) rather than reaching for `any`.
+ */
+type CallableMoment = () => { format: (format: string) => string };
+const callableMoment = moment as unknown as CallableMoment;
 import { CdpAmazonAuthService } from "./amazon/AmazonAuthService";
 import { getAmazonRegion, type AmazonRegion } from "./amazon/AmazonRegion";
 import { AmazonSessionExpiredError, CdpAmazonSessionService } from "./amazon/AmazonSessionService";
 import { CdpKindleReaderClient } from "./amazon/KindleReaderClient";
 import { BookNoteRepository } from "./markdown/BookNoteRepository";
+import { DailyNoteAppender } from "./markdown/DailyNoteAppender";
 import {
   DEFAULT_SETTINGS,
   normalizeSettings,
@@ -13,6 +29,7 @@ import {
 import { KindleBridgeSettingTab } from "./settings/KindleBridgeSettingTab";
 import { AmazonKindleSyncService } from "./sync/KindleSyncService";
 import { SyncAlreadyInProgressError, SyncCoordinator } from "./sync/SyncCoordinator";
+import type { SyncResult } from "./sync/SyncProgress";
 import { LoginModal } from "./ui/LoginModal";
 import { SyncProgressModal } from "./ui/SyncProgressModal";
 import { Logger } from "./utils/logger";
@@ -206,6 +223,10 @@ export default class KindleBridgePlugin extends Plugin {
         `Kindle Bridge: sync complete (${result.notesCreated} created, ${result.notesUpdated} updated, ${result.errors} errors).`,
       );
       new SyncProgressModal(this.app, result).open();
+
+      if (this.settings.dailyNoteSummaryEnabled) {
+        await this.appendDailyNoteSummary(result);
+      }
     } catch (error) {
       if (error instanceof SyncAlreadyInProgressError) {
         new Notice("Kindle Bridge: a sync is already in progress.");
@@ -218,6 +239,28 @@ export default class KindleBridgePlugin extends Plugin {
         return;
       }
       this.notifyError("Sync failed", error);
+    }
+  }
+
+  /**
+   * Failures here (bad date format, folder issue, etc.) must never turn
+   * an otherwise-successful sync into an error-looking experience for
+   * the user - logged and swallowed, not surfaced as a Notice. See
+   * DailyNoteAppender.ts and docs/risks.md R-18.
+   */
+  private async appendDailyNoteSummary(result: SyncResult): Promise<void> {
+    try {
+      const appender = new DailyNoteAppender(this.app.vault, (format) =>
+        callableMoment().format(format),
+      );
+      await appender.appendSyncSummary(result, {
+        folder: this.settings.dailyNoteFolder,
+        dateFormat: this.settings.dailyNoteDateFormat,
+      });
+    } catch (error) {
+      this.logger.warn("Could not append the Daily Note sync summary", {
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

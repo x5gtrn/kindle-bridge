@@ -68,5 +68,43 @@ export class KindleBridgeSettingTab extends PluginSettingTab {
           await this.host.saveSettings();
         });
       });
+
+    new Setting(containerEl)
+      .setName("Daily Note summary")
+      .setDesc(
+        "Append a short sync summary line to today's Daily Note (only if it already exists - this plugin never creates it). Uses the folder/date format below, not Obsidian's own Daily Notes settings, so make sure they match if you want the line in the same file.",
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.host.settings.dailyNoteSummaryEnabled).onChange(async (value) => {
+          this.host.settings.dailyNoteSummaryEnabled = value;
+          await this.host.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName("Daily Note folder")
+      .setDesc("Vault folder your Daily Notes live in. Leave empty for the vault root.")
+      .addText((text) => {
+        text
+          .setPlaceholder("Daily Notes")
+          .setValue(this.host.settings.dailyNoteFolder)
+          .onChange(async (value) => {
+            this.host.settings.dailyNoteFolder = value;
+            await this.host.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Daily Note date format")
+      .setDesc("Moment.js format used for the Daily Note file name, e.g. YYYY-MM-DD.")
+      .addText((text) => {
+        text
+          .setPlaceholder("YYYY-MM-DD")
+          .setValue(this.host.settings.dailyNoteDateFormat)
+          .onChange(async (value) => {
+            this.host.settings.dailyNoteDateFormat = value;
+            await this.host.saveSettings();
+          });
+      });
   }
 }

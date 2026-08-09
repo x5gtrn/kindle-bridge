@@ -5,6 +5,13 @@ export interface KindleBridgeSettings {
   outputFolder: string;
   displayCoverImage: boolean;
   debugLogging: boolean;
+  /** Opt-in: append a short sync summary line to today's Daily Note.
+   * See DailyNoteAppender.ts and docs/risks.md R-18 for why this uses
+   * its own folder/date-format settings instead of reading Obsidian's
+   * actual Daily Notes plugin configuration (no official API exists). */
+  dailyNoteSummaryEnabled: boolean;
+  dailyNoteFolder: string;
+  dailyNoteDateFormat: string;
 }
 
 export const DEFAULT_SETTINGS: KindleBridgeSettings = {
@@ -12,6 +19,9 @@ export const DEFAULT_SETTINGS: KindleBridgeSettings = {
   outputFolder: "Highlight and Memo/Books",
   displayCoverImage: true,
   debugLogging: false,
+  dailyNoteSummaryEnabled: false,
+  dailyNoteFolder: "Daily Notes",
+  dailyNoteDateFormat: "YYYY-MM-DD",
 };
 
 /**
@@ -44,5 +54,30 @@ export function normalizeSettings(data: unknown): KindleBridgeSettings {
       ? partial.debugLogging
       : DEFAULT_SETTINGS.debugLogging;
 
-  return { amazonRegion, outputFolder, displayCoverImage, debugLogging };
+  const dailyNoteSummaryEnabled =
+    typeof partial.dailyNoteSummaryEnabled === "boolean"
+      ? partial.dailyNoteSummaryEnabled
+      : DEFAULT_SETTINGS.dailyNoteSummaryEnabled;
+
+  // Unlike outputFolder, an empty string is a valid value here (vault
+  // root) - only a non-string persisted value falls back to default.
+  const dailyNoteFolder =
+    typeof partial.dailyNoteFolder === "string"
+      ? partial.dailyNoteFolder
+      : DEFAULT_SETTINGS.dailyNoteFolder;
+
+  const dailyNoteDateFormat =
+    typeof partial.dailyNoteDateFormat === "string" && partial.dailyNoteDateFormat.trim().length > 0
+      ? partial.dailyNoteDateFormat
+      : DEFAULT_SETTINGS.dailyNoteDateFormat;
+
+  return {
+    amazonRegion,
+    outputFolder,
+    displayCoverImage,
+    debugLogging,
+    dailyNoteSummaryEnabled,
+    dailyNoteFolder,
+    dailyNoteDateFormat,
+  };
 }
