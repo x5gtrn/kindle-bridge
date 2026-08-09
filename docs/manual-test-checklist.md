@@ -352,9 +352,36 @@ Notes:
 
 ### 4.14 Sync on startup - Phase 4
 
-**Steps:** Enable "Sync on startup" (2.8). Fully quit and relaunch Obsidian.
+**Steps:** With a valid Amazon session already signed in, enable "Sync on startup" (2.8). Fully quit and relaunch Obsidian.
 
 Expected result: A sync runs automatically shortly after Obsidian finishes loading - the completion Notice appears (e.g. "sync complete (...)"), but **no `SyncProgressModal` popup** (that's manual-sync-only, so it doesn't interrupt startup).
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.14a Startup sync prompts sign-in when there's no session (2026-08-10)
+
+**Steps:** Run "Kindle Bridge: Sign out from Amazon" (or otherwise ensure the session is invalid). With "Sync on startup" enabled, fully quit and relaunch Obsidian.
+
+Expected result: Shortly after Obsidian finishes loading, a Notice explains no Amazon session was found, then the same "Sign in to Amazon" confirmation modal used by the manual command appears on its own (no need to run any command). Complete sign-in in the browser window that opens.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.14b Startup sync runs automatically once sign-in succeeds (2026-08-10)
+
+**Steps:** Immediately following on from 4.14a, finish signing in successfully.
+
+Expected result: After the "signed in to Amazon" Notice, a startup-style sync runs automatically right after - same completion Notice as 4.14, still **no `SyncProgressModal` popup**. If you instead cancel/close the sign-in window (or let it time out), no sync should run and no error Notice should appear beyond the sign-in result itself.
+Actual result:
+Status: PASS / FAIL / BLOCKED
+Notes:
+
+### 4.14c Interval sync does not prompt sign-in (2026-08-10)
+
+**Steps:** With a signed-out/expired session, enable only "Automatic interval sync" (not "Sync on startup") at the minimum interval (15 minutes). Reload the plugin and wait for an interval to fire.
+
+Expected result: Unlike startup sync, an interval-triggered sync with no session fails **silently** - no sign-in modal, no error Notice (same as before this change; confirm via debug logging that a log line describes the skip). This distinction (startup prompts, interval doesn't) is intentional - see `docs/risks.md` R-19.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:

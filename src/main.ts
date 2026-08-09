@@ -15,7 +15,7 @@ import { App, FileSystemAdapter, Notice, Plugin, moment } from "obsidian";
  */
 type CallableMoment = () => { format: (format: string) => string };
 const callableMoment = moment as unknown as CallableMoment;
-import { CdpAmazonAuthService } from "./amazon/AmazonAuthService";
+import { CdpAmazonAuthService, type AmazonLoginResult } from "./amazon/AmazonAuthService";
 import { getAmazonRegion, type AmazonRegion } from "./amazon/AmazonRegion";
 import { AmazonSessionExpiredError, CdpAmazonSessionService } from "./amazon/AmazonSessionService";
 import { CdpKindleReaderClient } from "./amazon/KindleReaderClient";
@@ -106,7 +106,7 @@ export default class KindleBridgePlugin extends Plugin {
     // a plugin reload/Obsidian restart, not live.
     this.app.workspace.onLayoutReady(() => {
       if (this.settings.autoSyncOnStartup) {
-        void this.runSync(true);
+        void this.runStartupSync();
       }
     });
     if (this.settings.autoSyncIntervalEnabled) {
@@ -192,20 +192,33 @@ export default class KindleBridgePlugin extends Plugin {
    * the error with no Notice shown - this wraps the call in a proper
    * try/catch (via `await` inside an async function) so both synchronous
    * throws and asynchronous rejections are handled the same way.
+   *
+   * `onSuccess` (used by `runStartupSync()` to chain straight into the
+   * startup sync once signed in) deliberately runs *outside* the
+   * try/catch above: a failure in it is a sync failure, not a sign-in
+   * failure, and must not be misreported as "Sign-in failed".
    */
-  private async attemptSignIn(region: AmazonRegion): Promise<void> {
+  private async attemptSignIn(
+    region: AmazonRegion,
+    onSuccess?: () => Promise<void>,
+  ): Promise<void> {
     new Notice(
       "Kindle Bridge: opening a browser window for Amazon sign-in. Complete sign-in there, then return to Obsidian.",
     );
+    let result: AmazonLoginResult;
     try {
-      const result = await this.authService.signIn(region);
-      if (result === "success") {
-        new Notice("Kindle Bridge: signed in to Amazon.");
-      } else {
-        new Notice(`Kindle Bridge: sign-in ${result}.`);
-      }
+      result = await this.authService.signIn(region);
     } catch (error) {
       this.notifyError("Sign-in failed", error);
+      return;
+    }
+    if (result !== "success") {
+      new Notice(`Kindle Bridge: sign-in ${result}.`);
+      return;
+    }
+    new Notice("Kindle Bridge: signed in to Amazon.");
+    if (onSuccess) {
+      await onSuccess();
     }
   }
 
@@ -228,6 +241,49 @@ export default class KindleBridgePlugin extends Plugin {
     } catch (error) {
       this.notifyError("Sign-out failed", error);
     }
+  }
+
+  /**
+   * Entry point for the opt-in "Sync on startup" setting (see
+   * onload()). Unlike a plain automatic sync, a missing/expired Amazon
+   * session here isn't treated as a silent failure: since this only
+   * runs once per Obsidian launch (not every interval - interval sync
+   * still calls `runSync(true)` directly and stays silent on failure,
+   * per R-19, to avoid nagging every interval), it instead opens the
+   * same sign-in confirmation used by the "Sign in to Amazon" command,
+   * and - only if that sign-in actually succeeds - chains straight into
+   * the startup sync itself.
+   */
+  private async runStartupSync(): Promise<void> {
+    let region: AmazonRegion;
+    try {
+      region = this.currentRegion();
+    } catch (error) {
+      this.logger.warn("Startup sync skipped - could not resolve the configured region", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    let sessionValid: boolean;
+    try {
+      sessionValid = await this.sessionService.isSessionValid(region);
+    } catch (error) {
+      this.logger.warn("Startup sync skipped - could not check the Amazon session", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    if (sessionValid) {
+      await this.runSync(true);
+      return;
+    }
+
+    new Notice("Kindle Bridge: no Amazon session found - opening sign-in for the startup sync.");
+    new LoginModal(this.app, region, () => {
+      void this.attemptSignIn(region, () => this.runSync(true));
+    }).open();
   }
 
   /**
