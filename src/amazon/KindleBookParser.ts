@@ -40,7 +40,14 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
       return;
     }
 
-    const authorRaw = bookEl.find("p .kp-notebook-searchable").first().text().trim();
+    // Confirmed against a real, live account (2026-08-10, see
+    // docs/risks.md R-02): the class is on the <p> element itself, not
+    // a descendant of it - "p .kp-notebook-searchable" (a descendant
+    // combinator) never matched anything, silently leaving every
+    // book's authors empty. "p.kp-notebook-searchable" (a compound
+    // selector, no space) is the same pattern the title selector above
+    // already correctly used.
+    const authorRaw = bookEl.find("p.kp-notebook-searchable").first().text().trim();
     const author = authorRaw.replace(AUTHOR_PREFIX_PATTERN, "").trim();
 
     const coverImageUrl = bookEl.find("img.kp-notebook-cover-image").attr("src");

@@ -24,7 +24,14 @@ export function parseAmazonDate(
   }
 
   if (region.locale === "ja-JP") {
-    return parseJapaneseDate(trimmed);
+    // Confirmed against a real, live JP-region account (2026-08-10):
+    // Amazon doesn't always render this date in Japanese for a JP
+    // account - it's apparently tied to some other locale setting
+    // (browser/OS/Amazon language preference), not strictly the
+    // account's region. A value like "Sunday, August 9, 2026" would
+    // silently fail JP_DATE_PATTERN and be dropped entirely; falling
+    // through to the generic parser instead of giving up recovers it.
+    return parseJapaneseDate(trimmed) ?? parseEnglishDate(trimmed);
   }
   return parseEnglishDate(trimmed);
 }

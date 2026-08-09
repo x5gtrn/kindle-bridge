@@ -57,6 +57,27 @@ describe("parseBookList", () => {
       expect(book?.coverImageUrl).toBeUndefined();
       expect(book?.lastAnnotatedAt).toBeUndefined();
     });
+
+  });
+
+  it("still parses the last-annotated date when a JP-region account rendered it in English (confirmed live, 2026-08-10)", () => {
+    const html = `
+      <div id="kp-notebook-library">
+        <div id="B0JPBOOK0099" class="a-row kp-notebook-library-each-book">
+          <span class="a-declarative" data-action="get-annotations-for-asin">
+            <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+              <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">英語表記の日付を持つサンプル書籍</h2>
+              <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable">著者： 英語 花子</p>
+            </a>
+          </span>
+          <input type="hidden" name="" value="Sunday, August 9, 2026" id="kp-notebook-annotated-date-B0JPBOOK0099" />
+        </div>
+      </div>
+    `;
+    const [book] = parseBookList(html, getAmazonRegion("jp"));
+    expect(book).toBeDefined();
+    expect(book?.authors).toEqual(["英語 花子"]);
+    expect(book?.lastAnnotatedAt).toBe("2026-08-09");
   });
 
   describe("Global region", () => {

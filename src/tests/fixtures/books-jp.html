@@ -1,29 +1,47 @@
 <!--
   Anonymized fixture approximating the Amazon Japan Kindle notebook page
-  (read.amazon.co.jp/notebook) structure documented in docs/architecture.md.
-  Not captured from a real account; no real book, author, or cover data.
-  Selector names are best-effort based on published third-party research
-  (see docs/risks.md R-02) and may need updating if Amazon's markup changes.
+  (read.amazon.co.jp/notebook) structure. Not captured from a real
+  account (no real book/author/cover data), but the DOM shape
+  (#kp-notebook-library, .kp-notebook-library-each-book, h2.kp-notebook-searchable
+  for the title, p.kp-notebook-searchable *directly* on the <p> - not a
+  nested <span> - for the author, #kp-notebook-annotated-date-<asin>)
+  was confirmed against a real, live account on 2026-08-10 - see
+  docs/risks.md R-02. That same confirmation found the author selector
+  had been wrong from the start (a stray descendant-combinator space:
+  "p .kp-notebook-searchable" instead of "p.kp-notebook-searchable"),
+  silently leaving every book's authors empty - this fixture previously
+  matched that bug (a nested <span>) rather than reality. (A JP-region
+  account was also confirmed to sometimes render this date in English
+  rather than Japanese - covered by an inline-HTML test in
+  KindleBookParser.spec.ts and parseAmazonDate.spec.ts, not here, to
+  avoid perturbing the book count other tests/fixtures share this file
+  for.)
 -->
 <!DOCTYPE html>
 <html lang="ja">
   <body>
     <div id="kp-notebook-library">
-      <div id="B0JPBOOK0001" class="kp-notebook-library-each-book" data-asin="B0JPBOOK0001">
-        <div class="a-row kp-notebook-cover-image-fixed-height">
-          <img class="kp-notebook-cover-image" src="https://m.media-amazon.com/images/I/jp-sample-cover-1.jpg" />
-        </div>
-        <h2 class="kp-notebook-searchable">達人プログラマーへの道</h2>
-        <p class="a-row a-spacing-top-micro">
-          <span class="a-size-base a-color-secondary kp-notebook-searchable">著者： サンプル 太郎</span>
-        </p>
-        <input type="hidden" id="kp-notebook-annotated-date-B0JPBOOK0001" value="2026年7月15日" />
+      <div id="B0JPBOOK0001" class="a-row kp-notebook-library-each-book">
+        <span class="a-declarative" data-action="get-annotations-for-asin">
+          <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+            <div class="a-row">
+              <div class="a-column a-span4 a-push4 a-spacing-medium a-spacing-top-medium">
+                <img class="kp-notebook-cover-image kp-notebook-cover-image-border" src="https://m.media-amazon.com/images/I/jp-sample-cover-1.jpg" />
+              </div>
+            </div>
+            <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">達人プログラマーへの道</h2>
+            <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable">著者： サンプル 太郎</p>
+          </a>
+        </span>
+        <input type="hidden" name="" value="2026年7月15日" id="kp-notebook-annotated-date-B0JPBOOK0001" />
       </div>
-      <div id="B0JPBOOK0002" class="kp-notebook-library-each-book" data-asin="B0JPBOOK0002">
-        <h2 class="kp-notebook-searchable">タイトルのみのサンプル書籍</h2>
-        <p class="a-row a-spacing-top-micro">
-          <span class="a-size-base a-color-secondary kp-notebook-searchable"></span>
-        </p>
+      <div id="B0JPBOOK0002" class="a-row kp-notebook-library-each-book">
+        <span class="a-declarative" data-action="get-annotations-for-asin">
+          <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+            <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">タイトルのみのサンプル書籍</h2>
+            <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable"></p>
+          </a>
+        </span>
       </div>
     </div>
   </body>

@@ -1,28 +1,35 @@
 <!--
   Anonymized fixture approximating the Amazon Global/US Kindle notebook
   page (read.amazon.com/notebook) structure. Not captured from a real
-  account; no real book, author, or cover data. See books-jp.html and
-  docs/risks.md R-02 for caveats on selector accuracy.
+  account; no real book, author, or cover data. See books-jp.html for
+  the confirmed-live DOM shape this now matches (author class directly
+  on the <p>, not a nested <span>) and docs/risks.md R-02 for caveats.
 -->
 <!DOCTYPE html>
 <html lang="en">
   <body>
     <div id="kp-notebook-library">
-      <div id="B0GLOBALBOOK01" class="kp-notebook-library-each-book" data-asin="B0GLOBALBOOK01">
-        <div class="a-row kp-notebook-cover-image-fixed-height">
-          <img class="kp-notebook-cover-image" src="https://m.media-amazon.com/images/I/global-sample-cover-1.jpg" />
-        </div>
-        <h2 class="kp-notebook-searchable">Sample Book Title</h2>
-        <p class="a-row a-spacing-top-micro">
-          <span class="a-size-base a-color-secondary kp-notebook-searchable">By: Jane Example</span>
-        </p>
-        <input type="hidden" id="kp-notebook-annotated-date-B0GLOBALBOOK01" value="July 15, 2026" />
+      <div id="B0GLOBALBOOK01" class="a-row kp-notebook-library-each-book">
+        <span class="a-declarative" data-action="get-annotations-for-asin">
+          <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+            <div class="a-row">
+              <div class="a-column a-span4 a-push4 a-spacing-medium a-spacing-top-medium">
+                <img class="kp-notebook-cover-image kp-notebook-cover-image-border" src="https://m.media-amazon.com/images/I/global-sample-cover-1.jpg" />
+              </div>
+            </div>
+            <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">Sample Book Title</h2>
+            <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable">By: Jane Example</p>
+          </a>
+        </span>
+        <input type="hidden" name="" value="July 15, 2026" id="kp-notebook-annotated-date-B0GLOBALBOOK01" />
       </div>
-      <div id="B0GLOBALBOOK02" class="kp-notebook-library-each-book" data-asin="B0GLOBALBOOK02">
-        <h2 class="kp-notebook-searchable">Title Only Sample Book</h2>
-        <p class="a-row a-spacing-top-micro">
-          <span class="a-size-base a-color-secondary kp-notebook-searchable"></span>
-        </p>
+      <div id="B0GLOBALBOOK02" class="a-row kp-notebook-library-each-book">
+        <span class="a-declarative" data-action="get-annotations-for-asin">
+          <a class="a-link-normal a-text-normal" href="javascript:void(0);">
+            <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">Title Only Sample Book</h2>
+            <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable"></p>
+          </a>
+        </span>
       </div>
     </div>
   </body>

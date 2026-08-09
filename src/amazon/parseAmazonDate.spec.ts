@@ -15,8 +15,13 @@ describe("parseAmazonDate", () => {
     expect(parseAmazonDate("August 1, 2026", getAmazonRegion("global"))).toBe("2026-08-01");
   });
 
-  it("does not accept the English format for the jp region", () => {
-    expect(parseAmazonDate("August 1, 2026", getAmazonRegion("jp"))).toBeUndefined();
+  it("falls back to English parsing for the jp region when the Japanese format doesn't match (confirmed live, 2026-08-10)", () => {
+    // A real JP-region account was observed rendering this date in
+    // English ("Sunday, August 9, 2026") rather than Japanese - see
+    // docs/risks.md R-02. Falling through to the generic parser
+    // recovers it instead of silently dropping it.
+    expect(parseAmazonDate("August 1, 2026", getAmazonRegion("jp"))).toBe("2026-08-01");
+    expect(parseAmazonDate("Sunday, August 9, 2026", getAmazonRegion("jp"))).toBe("2026-08-09");
   });
 
   it("does not accept the Japanese format for the global region", () => {
