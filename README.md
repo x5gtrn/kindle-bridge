@@ -15,12 +15,77 @@ Sync Kindle highlights and notes from your Amazon account into per-book Markdown
 
 This is an **unofficial, community project**, not affiliated with or endorsed by Amazon. It automates the same notebook pages a signed-in user can view in a browser; it does not use any private/reverse-engineered Amazon API, and it does not attempt to bypass CAPTCHA or Amazon's bot-detection. See [`docs/risks.md`](docs/risks.md) for details, including Amazon's own Conditions of Use.
 
+## Using with Dataview
+
+Kindle Bridge doesn't need any special integration to work with the [Dataview](https://github.com/blacksmithgu/obsidian-dataview) community plugin (installed separately) - every generated book note's frontmatter is plain, queryable data. Every note has:
+
+| Field | Example | Notes |
+|---|---|---|
+| `kindle_bridge` | `true` | Always present - use this (or the `#kindle`/`#reading` tags) to filter to just Kindle Bridge notes |
+| `kindle_book_id` | `"B012345678"` | Stable id (ASIN when available) |
+| `asin` | `"B012345678"` | `null` if Amazon didn't expose one |
+| `title`, `authors` | `"Deep Work"`, `["Cal Newport"]` | |
+| `amazon_region` | `"jp"` | Matches the region id in Settings |
+| `amazon_url`, `cover_image_url` | | `null` if unavailable |
+| `last_annotated_at` | `"2026-08-06"` | From Amazon's book list page, not per-annotation (see `docs/risks.md` R-10) |
+| `annotation_count`, `highlight_count`, `note_count` | `12`, `9`, `3` | |
+| `last_synced_at` | ISO-8601 instant | Updated every sync, even if nothing changed |
+| `kindle_bridge_missing_from_library` | `false` | `true` if the book was flagged as no longer in your Kindle library (see "What this is" above) |
+
+A few example queries, using [DQL](https://blacksmithgu.github.io/obsidian-dataview/queries/query-types/) (put these in a code block with the `dataview` language tag in any note):
+
+**All synced books, most recently synced first:**
+
+````
+```dataview
+TABLE authors AS "Author", highlight_count AS "Highlights", note_count AS "Notes", last_synced_at AS "Last synced"
+FROM ""
+WHERE kindle_bridge
+SORT last_synced_at DESC
+```
+````
+
+**Your most-highlighted books:**
+
+````
+```dataview
+TABLE highlight_count AS "Highlights", note_count AS "Notes"
+FROM ""
+WHERE kindle_bridge
+SORT highlight_count DESC
+LIMIT 10
+```
+````
+
+**Books removed from your Kindle library** (flagged, but not deleted - see "What this is" above):
+
+````
+```dataview
+TABLE amazon_region AS "Region", last_synced_at AS "Last synced"
+FROM ""
+WHERE kindle_bridge AND kindle_bridge_missing_from_library
+```
+````
+
+**Synced in the last 7 days:**
+
+````
+```dataview
+LIST last_synced_at
+FROM ""
+WHERE kindle_bridge AND date(last_synced_at) >= date(today) - dur(7 days)
+SORT last_synced_at DESC
+```
+````
+
+`FROM ""` searches the whole vault, so these work regardless of your configured output folder; swap in `FROM "Highlight and Note/Books"` (or your own folder) to scope a query to just Kindle Bridge notes if you keep other unrelated notes tagged `kindle`/`reading` too.
+
 ## MVP limitations (this milestone)
 
 The following are **intentionally out of scope** for this milestone and planned for a later phase - see [`docs/mvp-scope.md`](docs/mvp-scope.md) for the full breakdown:
 
 - No differential/incremental sync beyond regenerating the plugin-managed block (deletion detection is implemented - see "What this is" above - but there's no line-level diff view or change history).
-- No Dataview-specific integration code (not needed - Dataview already queries any note's frontmatter directly). Daily Note summary is implemented (see "What this is" above) but uses its own folder/date-format settings rather than reading Obsidian's real Daily Notes configuration, since no official API exists for that (see `docs/risks.md` R-18) - make sure they match if you want the summary in the same file your Daily Notes command opens.
+- No Dataview-specific integration code (not needed - Dataview already queries any note's frontmatter directly, see "Using with Dataview" above). Daily Note summary is implemented (see "What this is" above) but uses its own folder/date-format settings rather than reading Obsidian's real Daily Notes configuration, since no official API exists for that (see `docs/risks.md` R-18) - make sure they match if you want the summary in the same file your Daily Notes command opens.
 - Only Japan and Global/United States are confirmed working - the other 6 regions in the dropdown are unverified (see "What this is" above and `docs/risks.md` R-20).
 - No advanced cancellation UI beyond preventing overlapping syncs.
 - Only the first page of a book's highlights/notes is fetched - very heavily annotated books beyond Amazon's per-page limit won't sync everything (see `docs/risks.md` R-17).
