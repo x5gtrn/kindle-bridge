@@ -47,7 +47,7 @@ interface AppWithSettingTab extends App {
 }
 
 export default class KindleBridgePlugin extends Plugin {
-  settings: KindleBridgeSettings = DEFAULT_SETTINGS;
+  pluginSettings: KindleBridgeSettings = DEFAULT_SETTINGS;
   logger = new Logger({ level: "info" });
 
   private readonly authService = new CdpAmazonAuthService(
@@ -74,13 +74,13 @@ export default class KindleBridgePlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "kindle-bridge-sign-in",
+      id: "sign-in",
       name: "Sign in to Amazon",
       callback: () => this.runSignIn(),
     });
 
     this.addCommand({
-      id: "kindle-bridge-sync-now",
+      id: "sync-now",
       name: "Sync now",
       callback: () => {
         void this.runSync();
@@ -88,7 +88,7 @@ export default class KindleBridgePlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "kindle-bridge-sign-out",
+      id: "sign-out",
       name: "Sign out from Amazon",
       callback: () => {
         void this.runSignOut();
@@ -96,7 +96,7 @@ export default class KindleBridgePlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "kindle-bridge-open-settings",
+      id: "open-settings",
       name: "Open settings",
       callback: () => this.openSettingsTab(),
     });
@@ -105,15 +105,15 @@ export default class KindleBridgePlugin extends Plugin {
     // once at load time - changing either setting takes effect after
     // a plugin reload/Obsidian restart, not live.
     this.app.workspace.onLayoutReady(() => {
-      if (this.settings.autoSyncOnStartup) {
+      if (this.pluginSettings.autoSyncOnStartup) {
         void this.runStartupSync();
       }
     });
-    if (this.settings.autoSyncIntervalEnabled) {
+    if (this.pluginSettings.autoSyncIntervalEnabled) {
       this.registerInterval(
         window.setInterval(
           () => void this.runSync(true),
-          this.settings.autoSyncIntervalMinutes * 60 * 1000,
+          this.pluginSettings.autoSyncIntervalMinutes * 60 * 1000,
         ),
       );
     }
@@ -130,17 +130,17 @@ export default class KindleBridgePlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = normalizeSettings(await this.loadData());
-    this.logger.setLevel(this.settings.debugLogging ? "debug" : "info");
+    this.pluginSettings = normalizeSettings(await this.loadData());
+    this.logger.setLevel(this.pluginSettings.debugLogging ? "debug" : "info");
   }
 
   async saveSettings(): Promise<void> {
-    this.logger.setLevel(this.settings.debugLogging ? "debug" : "info");
-    await this.saveData(this.settings);
+    this.logger.setLevel(this.pluginSettings.debugLogging ? "debug" : "info");
+    await this.saveData(this.pluginSettings);
   }
 
   private currentRegion() {
-    return getAmazonRegion(this.settings.amazonRegion);
+    return getAmazonRegion(this.pluginSettings.amazonRegion);
   }
 
   /**
@@ -303,14 +303,14 @@ export default class KindleBridgePlugin extends Plugin {
         this.app.vault,
         this.app.metadataCache,
         this.app.fileManager,
-        this.settings.outputFolder,
+        this.pluginSettings.outputFolder,
       );
       const syncService = new AmazonKindleSyncService({
         sessionService: this.sessionService,
         readerClient: this.readerClient,
         bookNoteRepository,
         logger: this.logger,
-        getDisplayCoverImage: () => this.settings.displayCoverImage,
+        getDisplayCoverImage: () => this.pluginSettings.displayCoverImage,
       });
 
       const result = await this.syncCoordinator.sync(region, syncService);
@@ -321,7 +321,7 @@ export default class KindleBridgePlugin extends Plugin {
         new SyncProgressModal(this.app, result).open();
       }
 
-      if (this.settings.dailyNoteSummaryEnabled) {
+      if (this.pluginSettings.dailyNoteSummaryEnabled) {
         await this.appendDailyNoteSummary(result);
       }
     } catch (error) {
@@ -365,8 +365,8 @@ export default class KindleBridgePlugin extends Plugin {
         callableMoment().format(format),
       );
       await appender.appendSyncSummary(result, {
-        folder: this.settings.dailyNoteFolder,
-        dateFormat: this.settings.dailyNoteDateFormat,
+        folder: this.pluginSettings.dailyNoteFolder,
+        dateFormat: this.pluginSettings.dailyNoteDateFormat,
       });
     } catch (error) {
       this.logger.warn("Could not append the Daily Note sync summary", {

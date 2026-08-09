@@ -4,6 +4,20 @@ All notable changes to Kindle Bridge are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-08-10
+
+### Fixed
+
+- Fixed a false minimum-version dependency: the plugin's own `settings` field was renamed to `pluginSettings` after Obsidian 1.13.0 introduced an official, same-named `Plugin.settings` field. The name collision made static analysis treat this plugin as requiring Obsidian 1.13.0+, even though it has no actual dependency on that API — `minAppVersion` stays `1.4.4`.
+- Removed the "kindle-bridge-" prefix from command IDs (Obsidian already namespaces commands by plugin ID, so the prefix was redundant).
+- Removed a call to the deprecated `SliderComponent.setDynamicTooltip()` (Obsidian now always shows the slider tooltip inline).
+
+### Changed
+
+- Replaced the `builtin-modules` dependency with Node's built-in `node:module` `builtinModules` in the build config, removing an unnecessary dependency.
+- Routed default (non-debug) console logging through `console.debug` instead of `console.log`, per Obsidian's console-logging guideline.
+- Adopted the official [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) rule set in local linting and CI, to catch this class of issue automatically going forward.
+
 ## [1.0.0] - 2026-08-10
 
 Initial public release.
@@ -28,4 +42,5 @@ Initial public release.
 - Amazon credentials (password, one-time code, cookies) are never read, stored, or logged by the plugin — see [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md).
 - No analytics, telemetry, or developer-owned server — the only network destination is Amazon and a local Chrome DevTools Protocol connection.
 
+[1.0.1]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.1
 [1.0.0]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.0
