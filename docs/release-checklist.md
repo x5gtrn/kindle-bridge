@@ -1,4 +1,4 @@
-# Manual Release Acceptance Checklist — v1.0.0
+# Manual Release Acceptance Checklist — v1.0.1
 
 Fill in `Expected` / `Actual` / `Status` / `Notes` for each item before publishing. `Status` is one of `PASS`, `FAIL`, `BLOCKED`, or `NOT TESTED`. Do not mark an item `PASS` without actually performing it — a manual step you haven't run yet should stay `NOT TESTED`, not be assumed.
 
@@ -159,15 +159,15 @@ For detailed step-by-step manual testing procedures (beyond this checklist's pas
 
 ## Release
 
-- [ ] `manifest.json` version is `1.0.0`
-- [ ] `package.json` / `package-lock.json` version is `1.0.0`
-- [ ] `versions.json` has a `1.0.0` entry with the correct `minAppVersion`
-- [ ] `CHANGELOG.md` has a `[1.0.0]` entry
+- [ ] `manifest.json` version is `1.0.1`
+- [ ] `package.json` / `package-lock.json` version is `1.0.1`
+- [ ] `versions.json` is correct (no new entry needed — `minAppVersion` is unchanged from `1.0.0`; per Obsidian's `versions.json` spec, an entry is only required when `minAppVersion` changes)
+- [ ] `CHANGELOG.md` has a `[1.0.1]` entry
 - [ ] `README.md` is accurate and contains no stale MVP/Phase language
 - [ ] `LICENSE` is present and correct
 - [ ] `PRIVACY.md` is present and matches actual behavior
 - [ ] `SECURITY.md` is present
-- [ ] GitHub Release for tag `1.0.0` has `main.js` and `manifest.json` attached (no `styles.css` — none is shipped)
+- [ ] GitHub Release for tag `1.0.1` has `main.js` and `manifest.json` attached (no `styles.css` — none is shipped)
 
 ## Sign-off
 

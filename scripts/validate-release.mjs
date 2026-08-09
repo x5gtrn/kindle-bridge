@@ -98,13 +98,20 @@ if (!existsSync(manifestPath)) {
   }
 
   // --- versions.json ---
+  // Per Obsidian's versions.json spec, an entry is only required when
+  // minAppVersion changes between releases - not for every version. So
+  // a missing entry for the current version is valid (and common for a
+  // patch release), not a failure. Only an existing-but-mismatched
+  // entry is an actual problem.
   const versionsPath = join(root, "versions.json");
   if (!existsSync(versionsPath)) {
     fail("versions.json is missing from the repository root.");
   } else {
     const versions = readJson(versionsPath);
     if (versions[manifest.version] === undefined) {
-      fail(`versions.json has no entry for the current version "${manifest.version}".`);
+      warn(
+        `versions.json has no entry for the current version "${manifest.version}" - fine if minAppVersion hasn't changed since the last version that does have one.`,
+      );
     } else if (versions[manifest.version] !== manifest.minAppVersion) {
       fail(
         `versions.json["${manifest.version}"] ("${versions[manifest.version]}") does not match manifest.json minAppVersion ("${manifest.minAppVersion}").`,

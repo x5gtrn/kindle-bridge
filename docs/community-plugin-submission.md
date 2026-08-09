@@ -22,7 +22,7 @@ This document was prepared by fetching Obsidian's current developer documentatio
 | Author | Daisuke Masuda |
 | Description | Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your vault. |
 | Repository | `https://github.com/x5gtrn/kindle-bridge` |
-| Current version | 1.0.0 |
+| Current version | 1.0.1 |
 | minAppVersion | 1.4.4 |
 | isDesktopOnly | true |
 | License | MIT |
@@ -37,7 +37,7 @@ Note: the GitHub repository was renamed from `Obsidian-Kindle-Bridge` to `kindle
 - [ ] An Obsidian account, used to sign in at [community.obsidian.md](https://community.obsidian.md).
 - [ ] `README.md` in the repository root describing the plugin's purpose and usage (done).
 - [ ] `LICENSE` in the repository root (done — MIT).
-- [ ] `manifest.json` in the repository root, accurate and committed to the default branch (done — verify the HEAD of `main` has the `1.0.0` version before submitting, since the directory processes `manifest.json` at HEAD, not at the tagged release).
+- [ ] `manifest.json` in the repository root, accurate and committed to the default branch (verify the HEAD of `main` has the `1.0.1` version before submitting/updating, since the directory processes `manifest.json` at HEAD, not at the tagged release).
 
 ## Step 1: Publish to GitHub
 
@@ -45,9 +45,11 @@ Already done — this repository is hosted at `https://github.com/x5gtrn/kindle-
 
 ## Step 2: Create a release
 
-1. Confirm `manifest.json`'s `version` is `1.0.0` (Semantic Versioning, format `x.y.z`) — done.
-2. Create a Git tag matching the version **exactly, with no `v` prefix**: `1.0.0`. Pushing this tag triggers `.github/workflows/release.yml`, which builds and creates a **draft** GitHub Release with `main.js` and `manifest.json` attached (no `styles.css` — this plugin doesn't ship one).
-3. Review the draft release, add release notes (see [`docs/release-notes-1.0.0.md`](release-notes-1.0.0.md), written to be usable as-is), and select **Publish release**.
+1. Confirm `manifest.json`'s `version` is `1.0.1` (Semantic Versioning, format `x.y.z`) — done.
+2. Create a Git tag matching the version **exactly, with no `v` prefix**: `1.0.1`. Pushing this tag triggers `.github/workflows/release.yml`, which builds and creates a **draft** GitHub Release with `main.js` and `manifest.json` attached (no `styles.css` — this plugin doesn't ship one).
+3. Review the draft release, add release notes (see [`docs/release-notes-1.0.1.md`](release-notes-1.0.1.md), written to be usable as-is), and select **Publish release**.
+
+`1.0.0` was already tagged and pushed to `origin` (see `git tag -l`). This section now describes the *next* release, `1.0.1` — a patch release fixing the Obsidian plugin review findings documented in `CHANGELOG.md`.
 
 Obsidian downloads `main.js`, `manifest.json`, and `styles.css` (if present) from the GitHub Release whose tag matches the `version` in `manifest.json` — the committed `manifest.json` in the repo is only used to determine the *latest available version*, not to serve the actual files.
 
@@ -60,7 +62,7 @@ Obsidian downloads `main.js`, `manifest.json`, and `styles.css` (if present) fro
    - **Owner**: yourself (or an organization, if applicable).
 4. Review and agree to the [Developer policies](https://docs.obsidian.md/Developer+policies), confirm ongoing support commitment, and select **Submit**.
 
-The directory reads `manifest.json` from the HEAD of the default branch (`main`) to validate the submission — make sure `main` has the `1.0.0` manifest committed before this step.
+The directory reads `manifest.json` from the HEAD of the default branch (`main`) to validate the submission — make sure `main` has the `1.0.1` manifest committed before this step.
 
 ## Step 4: Address automated review feedback
 
