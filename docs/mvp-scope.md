@@ -8,7 +8,7 @@
 
 ### Settings
 - Amazon region: `jp` (Japan) or `global` (US/Global), via an extensible region registry.
-- Output folder (default `Highlight and Memo/Books`).
+- Output folder (default `Highlight and Note/Books`).
 - Display cover image (on/off).
 - Debug logging (on/off), with authentication data always masked regardless of this setting.
 
@@ -22,17 +22,17 @@
 ### Data retrieval
 - Book list retrieval for the `jp` and `global` regions.
 - Highlight retrieval.
-- Memo retrieval, associated with their originating highlight where Amazon's markup associates them.
+- Note retrieval, associated with their originating highlight where Amazon's markup associates them.
 - Rate-limited, low-concurrency (1–2) requests with bounded retries on transient errors only, hard stop on HTTP 429.
 
 ### Parsing and domain model
 - `KindleBook` and `KindleAnnotation` models as specified, with a deterministic content-hash-based annotation ID when Amazon provides no stable ID.
-- Pure-function parsers (no I/O), covered by anonymized HTML fixtures and unit tests for: book list parsing, highlight parsing, memo parsing, highlight/memo association, location parsing, page parsing, date parsing (including missing dates), missing/malformed fields, JP vs. Global differences, malformed HTML (no crash), annotation ID reproducibility, content hash reproducibility.
+- Pure-function parsers (no I/O), covered by anonymized HTML fixtures and unit tests for: book list parsing, highlight parsing, note parsing, highlight/note association, location parsing, page parsing, date parsing (including missing dates), missing/malformed fields, JP vs. Global differences, malformed HTML (no crash), annotation ID reproducibility, content hash reproducibility.
 
 ### Markdown generation and storage
 - One Markdown note per book, filename derived from title, disambiguated with ASIN/short ID on collision, illegal filename characters sanitized.
-- Frontmatter with the fields specified in the plugin spec (`kindle_bridge`, `kindle_book_id`, `asin`, `title`, `authors`, `amazon_region`, `amazon_url`, `cover_image_url`, `last_annotated_at`, `annotation_count`, `highlight_count`, `memo_count`, `last_synced_at`, `tags`).
-- A clearly delimited generated block (`<!-- kindle-bridge:generated:start/end -->`) containing all highlights/memos; content outside this block (including a `## My Notes` section) is never modified by sync after initial creation.
+- Frontmatter with the fields specified in the plugin spec (`kindle_bridge`, `kindle_book_id`, `asin`, `title`, `authors`, `amazon_region`, `amazon_url`, `cover_image_url`, `last_annotated_at`, `annotation_count`, `highlight_count`, `note_count`, `last_synced_at`, `tags`).
+- A clearly delimited generated block (`<!-- kindle-bridge:generated:start/end -->`) containing all highlights/notes; content outside this block (including a `## My Notes` section) is never modified by sync after initial creation.
 - Cover images referenced by their Amazon URL only — never downloaded locally; clicking the cover opens the Amazon book page or Kindle Reader.
 - All file I/O through the Obsidian Vault API, not raw filesystem APIs.
 
@@ -40,13 +40,13 @@
 - Manual trigger only, via Command Palette (`Sign in to Amazon`, `Sync now`, `Sign out from Amazon`, `Open settings`) and a ribbon icon for sync.
 - Single-flight sync lock (no concurrent syncs).
 - Per-book failure isolation: one book failing does not stop the whole sync; only continuation-breaking errors (e.g. session expiry) stop the whole run.
-- Sync result summary shown to the user: books fetched, notes created, notes updated, highlights fetched, memos fetched, skipped count, error count.
+- Sync result summary shown to the user: books fetched, notes created, notes updated, highlights fetched, notes fetched, skipped count, error count.
 
 ### Error handling
 All of: not signed in, session expired, MFA required, CAPTCHA presented, network error, HTTP error, region mismatch, book list fetch failure, single-book fetch failure, parser failure (surfaced as a possible Amazon layout change), invalid date, invalid filename, vault folder creation failure, markdown save failure, duplicate sync attempt.
 
 ### Logging
-Leveled logging (`error`/`warn`/`info`/`debug`) that never emits passwords, cookies, session tokens, OTPs, auth headers, raw Amazon response bodies, or full highlight/memo text — including when debug logging is enabled.
+Leveled logging (`error`/`warn`/`info`/`debug`) that never emits passwords, cookies, session tokens, OTPs, auth headers, raw Amazon response bodies, or full highlight/note text — including when debug logging is enabled.
 
 ### Quality gates
 `npm run build`, `npm run typecheck`, `npm run lint`, `npm test` all passing, no `any`, no disabled/skipped tests, no dead code.

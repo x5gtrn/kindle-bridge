@@ -85,7 +85,7 @@ Notes:
 
 **Steps:** Change "Output folder" to a custom path, e.g. `Reading/Kindle`. Run a sync (see section 4) afterward.
 
-Expected result: Book notes are created under the new folder path, not the default `Highlight and Memo/Books`.
+Expected result: Book notes are created under the new folder path, not the default `Highlight and Note/Books`.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -219,7 +219,7 @@ Notes: _(This is a genuine open question our design didn't explicitly resolve - 
 
 **Steps:** With a valid session and at least one annotated book on Amazon, run "Sync now".
 
-Expected result: A Notice reports counts (created/updated/errors), and a `SyncProgressModal` opens showing the full breakdown (books found, notes created/updated, highlights/memos fetched, skipped, errors).
+Expected result: A Notice reports counts (created/updated/errors), and a `SyncProgressModal` opens showing the full breakdown (books found, notes created/updated, highlights/notes fetched, skipped, errors).
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -244,27 +244,27 @@ Notes:
 
 ### 4.4 Highlight のみの書籍
 
-**Steps:** Sync a book that has highlights but no memos/notes attached.
+**Steps:** Sync a book that has highlights but no notes attached.
 
-Expected result: The note's generated block shows only `### Highlight` sections, no `**Memo**` text; `memo_count: 0` in frontmatter for that book.
+Expected result: The note's generated block shows only `### Highlight` sections, no `**Note**` text; `note_count: 0` in frontmatter for that book.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.5 Memo ありの書籍
+### 4.5 Note ありの書籍
 
 **Steps:** Sync a book where at least one highlight has an attached note.
 
-Expected result: That entry renders as `### Highlight with Memo` with a `**Memo**` section containing the note text.
+Expected result: That entry renders as `### Highlight with Note` with a `**Note**` section containing the note text.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
 ### 4.6 空データ (a book with zero annotations, if reachable)
 
-**Steps:** Hard to force via the UI since Amazon's notebook normally only lists annotated books. If you can identify or contrive such a case, sync it - first when no note exists yet for that book, then again after deleting all its highlights/memos on Amazon when a note **does** already exist (e.g. sync it once with a highlight present, delete that highlight on Amazon, sync again).
+**Steps:** Hard to force via the UI since Amazon's notebook normally only lists annotated books. If you can identify or contrive such a case, sync it - first when no note exists yet for that book, then again after deleting all its highlights/notes on Amazon when a note **does** already exist (e.g. sync it once with a highlight present, delete that highlight on Amazon, sync again).
 
-Expected result: With no existing note, the book is counted in `skipped` and no note is created (unchanged from before Phase 4). With an existing note, the book is instead counted in `notesUpdated` and its generated block is replaced with a "_No highlights or memos found for this book on Amazon as of the last sync._" placeholder - not left showing the old, now-deleted content. See `docs/risks.md` R-13.
+Expected result: With no existing note, the book is counted in `skipped` and no note is created (unchanged from before Phase 4). With an existing note, the book is instead counted in `notesUpdated` and its generated block is replaced with a "_No highlights or notes found for this book on Amazon as of the last sync._" placeholder - not left showing the old, now-deleted content. See `docs/risks.md` R-13.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -300,7 +300,7 @@ Notes:
 
 **Steps:** Sync normally so a book gets a note. Then either archive/remove that book from your Kindle library on Amazon, or (safer for testing) temporarily rename it in a way that changes its ASIN visibility - whatever reliably makes it absent from the next `fetchBookListHtml()` result. Sync again.
 
-Expected result: The book's existing note is **not** deleted and its highlights/memos are **not** removed - a warning banner (`> [!warning] This book no longer appears in your Kindle library`) is prepended inside the generated block, above the untouched existing content, and the note's frontmatter gains `kindle_bridge_missing_from_library: true`. The sync result modal shows a non-zero "Flagged as removed from library" count. Running sync again (book still missing) should **not** increase that count further (already flagged, not re-counted).
+Expected result: The book's existing note is **not** deleted and its highlights/notes are **not** removed - a warning banner (`> [!warning] This book no longer appears in your Kindle library`) is prepended inside the generated block, above the untouched existing content, and the note's frontmatter gains `kindle_bridge_missing_from_library: true`. The sync result modal shows a non-zero "Flagged as removed from library" count. Running sync again (book still missing) should **not** increase that count further (already flagged, not re-counted).
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -309,7 +309,7 @@ Notes:
 
 **Steps:** Following on from 4.10, restore the book to your Kindle library (undo whatever made it disappear), then sync again.
 
-Expected result: The book gets a normal `upsert()` this time - the warning banner is gone, `kindle_bridge_missing_from_library` is back to `false` in frontmatter, and the generated block reflects the book's real current highlights/memos.
+Expected result: The book gets a normal `upsert()` this time - the warning banner is gone, `kindle_bridge_missing_from_library` is back to `false` in frontmatter, and the generated block reflects the book's real current highlights/notes.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -318,7 +318,7 @@ Notes:
 
 **Steps:** With "Daily Note summary" enabled (2.7) and its folder/date format matching a Daily Note you already have open/created for today, run a sync that creates or updates at least one book note. Then run "Sync now" again immediately with nothing changed on Amazon's side.
 
-Expected result: After the first sync, a new line appears at the end of today's Daily Note, starting with "📚 Kindle Bridge:" and matching the sync's actual created/updated/flagged/highlight/memo counts. After the second (no-op) sync, **no new line** is appended (zero meaningful activity).
+Expected result: After the first sync, a new line appears at the end of today's Daily Note, starting with "📚 Kindle Bridge:" and matching the sync's actual created/updated/flagged/highlight/note counts. After the second (no-op) sync, **no new line** is appended (zero meaningful activity).
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -385,7 +385,7 @@ Notes:
 
 **Steps:** Open a synced note and check its Properties panel (or raw frontmatter in Source Mode).
 
-Expected result: `kindle_bridge: true`, `kindle_book_id`, `asin` (if available), `title`, `authors`, `amazon_region`, `amazon_url`, `cover_image_url`, `last_annotated_at`, `annotation_count`, `highlight_count`, `memo_count`, `last_synced_at`, and `tags: [kindle, reading]` are all present and look correct for that book.
+Expected result: `kindle_bridge: true`, `kindle_book_id`, `asin` (if available), `title`, `authors`, `amazon_region`, `amazon_url`, `cover_image_url`, `last_annotated_at`, `annotation_count`, `highlight_count`, `note_count`, `last_synced_at`, and `tags: [kindle, reading]` are all present and look correct for that book.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -415,9 +415,9 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.6 Memo
+### 5.6 Note
 
-Expected result: Notes/memos you added on Amazon appear under a `**Memo**` sub-section beneath their associated highlight.
+Expected result: Notes you added on Amazon appear under a `**Note**` sub-section beneath their associated highlight.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
@@ -488,7 +488,7 @@ Notes:
 
 ### 5.15 ユーザー編集領域の保持 (user-edited region survives resync)
 
-**Steps:** Open a synced note. Add your own text under `## My Notes`, and also add a sentence somewhere between the frontmatter and `## Highlights and Memos` (e.g. right after the `# Title` heading). Save. Run "Sync now" again for the same book.
+**Steps:** Open a synced note. Add your own text under `## My Notes`, and also add a sentence somewhere between the frontmatter and `## Highlights and Notes` (e.g. right after the `# Title` heading). Save. Run "Sync now" again for the same book.
 
 Expected result: Your added text in both locations is still present, character-for-character, after the resync.
 Actual result:
@@ -512,7 +512,7 @@ While performing the tests above, especially 2.5 (debug logging) and 3.1-3.6 (au
 
 - [ ] Confirm no line in the console contains anything that looks like a raw cookie value, session token, or `Authorization:` header value.
 - [ ] Confirm no line contains your Amazon password or an OTP code you typed.
-- [ ] Confirm no line contains the full text of one of your highlights or memos (short excerpts in error messages referencing a book *title* are expected and fine; full highlight/memo bodies are not).
+- [ ] Confirm no line contains the full text of one of your highlights or notes (short excerpts in error messages referencing a book *title* are expected and fine; full highlight/note bodies are not).
 - [ ] Open `<vault>/.obsidian/plugins/kindle-bridge/data.json` in a text editor after signing in and syncing. Confirm it contains only the four settings fields (region, output folder, display toggle, debug toggle) - no cookies, tokens, or credentials.
 
 ---
