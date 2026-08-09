@@ -62,26 +62,66 @@ describe.skipIf(process.platform === "win32")("clearStaleSingletonLock", () => {
 
   it("does nothing when there's no SingletonLock", () => {
     const dir = freshProfileDir();
-    expect(() => clearStaleSingletonLock(dir)).not.toThrow();
+    const result = clearStaleSingletonLock(dir);
+    expect(result).toEqual({ kind: "none" });
   });
 
   it("does nothing when SingletonLock exists but isn't a symlink", () => {
     const dir = freshProfileDir();
     writeFileSync(join(dir, "SingletonLock"), "not a symlink");
 
-    clearStaleSingletonLock(dir);
+    const result = clearStaleSingletonLock(dir);
 
+    expect(result).toEqual({ kind: "none" });
     expect(existsSync(join(dir, "SingletonLock"))).toBe(true);
   });
 
-  it("leaves the lock in place when the referenced process is still alive", () => {
+  it("reports 'unparseable' and leaves the lock alone when the symlink target doesn't look like <hostname>-<pid>", () => {
     const dir = freshProfileDir();
-    // The test runner's own process is unambiguously alive.
+    symlinkSync("not-a-valid-target", join(dir, "SingletonLock"));
+
+    const result = clearStaleSingletonLock(dir);
+
+    expect(result).toEqual({ kind: "unparseable", target: "not-a-valid-target" });
+    expect(symlinkExists(join(dir, "SingletonLock"))).toBe(true);
+  });
+
+  it("leaves the lock in place when the referenced process is alive and looks like a browser", () => {
+    const dir = freshProfileDir();
+    // The test runner's own process is unambiguously alive; the real
+    // pid only matters for the liveness check, not the fake command
+    // below (this is what actually distinguishes "still a real
+    // browser" from "pid reused by something else" - see the next test).
     symlinkSync(`${hostname()}-${process.pid}`, join(dir, "SingletonLock"));
 
-    clearStaleSingletonLock(dir);
+    const result = clearStaleSingletonLock(dir, () => "Google Chrome");
 
+    expect(result).toEqual({ kind: "alive", pid: process.pid, command: "Google Chrome" });
     expect(symlinkExists(join(dir, "SingletonLock"))).toBe(true);
+  });
+
+  it("leaves the lock in place when the referenced process is alive and its command can't be determined", () => {
+    const dir = freshProfileDir();
+    symlinkSync(`${hostname()}-${process.pid}`, join(dir, "SingletonLock"));
+
+    const result = clearStaleSingletonLock(dir, () => undefined);
+
+    expect(result).toEqual({ kind: "alive", pid: process.pid, command: undefined });
+    expect(symlinkExists(join(dir, "SingletonLock"))).toBe(true);
+  });
+
+  it("clears the lock when the referenced pid is alive but clearly isn't a browser (PID reuse)", () => {
+    const dir = freshProfileDir();
+    // Simulates the OS having reused this pid for an unrelated process
+    // after the original browser that held it died.
+    symlinkSync(`${hostname()}-${process.pid}`, join(dir, "SingletonLock"));
+    writeFileSync(join(dir, "SingletonSocket"), "");
+
+    const result = clearStaleSingletonLock(dir, () => "SomeUnrelatedApp");
+
+    expect(result).toEqual({ kind: "cleared", pid: process.pid });
+    expect(existsSync(join(dir, "SingletonLock"))).toBe(false);
+    expect(existsSync(join(dir, "SingletonSocket"))).toBe(false);
   });
 
   it("removes SingletonLock/Socket/Cookie when the referenced process is confirmed dead", async () => {
@@ -95,8 +135,9 @@ describe.skipIf(process.platform === "win32")("clearStaleSingletonLock", () => {
     writeFileSync(join(dir, "SingletonSocket"), "");
     writeFileSync(join(dir, "SingletonCookie"), "");
 
-    clearStaleSingletonLock(dir);
+    const result = clearStaleSingletonLock(dir);
 
+    expect(result).toEqual({ kind: "cleared", pid: deadPid });
     expect(existsSync(join(dir, "SingletonLock"))).toBe(false);
     expect(existsSync(join(dir, "SingletonSocket"))).toBe(false);
     expect(existsSync(join(dir, "SingletonCookie"))).toBe(false);

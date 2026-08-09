@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { readlinkSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { findBrowserExecutable } from "./browserExecutable";
@@ -28,6 +28,19 @@ export interface CdpLaunchOptions {
   headless: boolean;
 }
 
+/** What `clearStaleSingletonLock()` found and decided, returned (rather
+ * than just logged) so `launch()` can fold it into its own failure
+ * message if the subsequent launch attempt still fails - see
+ * docs/risks.md R-05's 2026-08-10 entries for why this diagnostic
+ * detail matters: the first version of this function was silent,
+ * which made a recurrence of the same failure undiagnosable without a
+ * separate round-trip asking the user to run shell commands. */
+export type SingletonLockAction =
+  | { kind: "none" }
+  | { kind: "unparseable"; target: string }
+  | { kind: "alive"; pid: number; command: string | undefined }
+  | { kind: "cleared"; pid: number };
+
 /**
  * Chrome's `SingletonLock` is a symlink (POSIX only - Chrome uses a
  * named mutex on Windows instead, so this is a no-op there) shaped
@@ -44,29 +57,56 @@ export interface CdpLaunchOptions {
  * operation; `launch()`'s own try/catch already kills the process on
  * a post-spawn failure - see below). So any lock found here is either
  * already stale, or - more cautiously assumed - still legitimately
- * alive; only the confirmed-stale case is safe to clear automatically,
- * checked via a signal-0 `process.kill()` (tests liveness without
- * sending a real signal). If the referenced process is still alive,
- * this deliberately leaves the lock alone and lets Chrome's own
- * failure surface as before - force-launching a second process
- * against a genuinely in-use profile is exactly the corruption
- * scenario Chrome's own check exists to prevent.
+ * alive. Two checks decide which:
+ *  1. A signal-0 `process.kill()` (tests liveness without sending a
+ *     real signal) - a confirmed-dead pid (`ESRCH`) is unambiguous.
+ *  2. For a pid that *is* alive: cross-checked against `ps`'s report
+ *     of that pid's command name. PIDs get reused by the OS over
+ *     time, so a lock referencing a pid that's alive right now doesn't
+ *     by itself prove the *original* browser process is still the one
+ *     holding it - if the live process clearly isn't a browser at all
+ *     (chrome/chromium/edge/brave), the lock is stale-by-PID-reuse and
+ *     just as safe to clear as a confirmed-dead one.
+ * Only when the live pid's command can't be ruled out as a browser
+ * (including when it can't be determined at all, e.g. `ps` itself
+ * failing) is the lock left alone, and Chrome's own failure allowed to
+ * surface as before - force-launching a second process against a
+ * profile a real browser still owns is exactly the corruption scenario
+ * Chrome's own check exists to prevent.
  */
-export function clearStaleSingletonLock(userDataDir: string): void {
+export function clearStaleSingletonLock(
+  userDataDir: string,
+  // Injected (rather than always calling the real `ps`-based lookup
+  // directly) so tests can exercise the "alive and looks like a
+  // browser" / "alive, command unknown" branches deterministically,
+  // without needing a real Chrome process to spawn - same DI pattern
+  // as `formatDate` in DailyNoteAppender.ts.
+  getProcessCommand: (pid: number) => string | undefined = getProcessCommandViaPs,
+): SingletonLockAction {
   if (process.platform === "win32") {
-    return;
+    return { kind: "none" };
   }
 
   let target: string;
   try {
     target = readlinkSync(join(userDataDir, "SingletonLock"));
   } catch {
-    return; // No lock, or not a symlink - nothing to clean up.
+    return { kind: "none" }; // No lock, or not a symlink.
   }
 
   const pid = Number(target.slice(target.lastIndexOf("-") + 1));
-  if (!Number.isInteger(pid) || isProcessAlive(pid)) {
-    return;
+  if (!Number.isInteger(pid)) {
+    return { kind: "unparseable", target };
+  }
+
+  if (isProcessAlive(pid)) {
+    const command = getProcessCommand(pid);
+    if (!command || looksLikeBrowserProcess(command)) {
+      // Alive and (looks like a browser, or we can't tell) - leave it.
+      return { kind: "alive", pid, command };
+    }
+    // Alive, but clearly not a browser - the pid was reused after the
+    // original process died; fall through and clear it below.
   }
 
   for (const name of SINGLETON_FILE_NAMES) {
@@ -77,6 +117,7 @@ export function clearStaleSingletonLock(userDataDir: string): void {
       // own error (if any) surfaces exactly as it did before this fix.
     }
   }
+  return { kind: "cleared", pid };
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -88,6 +129,25 @@ function isProcessAlive(pid: number): boolean {
     // (e.g. EPERM) means we can't prove it's dead, so assume alive.
     return (error as NodeJS.ErrnoException).code !== "ESRCH";
   }
+}
+
+/** Best-effort - `undefined` (not a throw) if `ps` itself is
+ * unavailable or the pid disappeared between the liveness check above
+ * and this call; callers treat "unknown" the same as "might be a
+ * browser" (conservative). */
+function getProcessCommandViaPs(pid: number): string | undefined {
+  try {
+    return execFileSync("ps", ["-p", String(pid), "-o", "comm="], {
+      encoding: "utf8",
+      timeout: 2000,
+    }).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+function looksLikeBrowserProcess(command: string): boolean {
+  return /chrome|chromium|msedge|edge|brave/i.test(command);
 }
 
 // Property-typed (not method-shorthand) throughout this interface so
@@ -159,7 +219,7 @@ export class CdpBrowser {
   // Property-typed (not method-shorthand) so test mocks (vi.mocked(...))
   // can reference it without tripping @typescript-eslint/unbound-method.
   static launch = async (options: CdpLaunchOptions): Promise<CdpBrowser> => {
-    clearStaleSingletonLock(options.userDataDir);
+    const lockAction = clearStaleSingletonLock(options.userDataDir);
     const executablePath = findBrowserExecutable();
     const args = [
       `--user-data-dir=${options.userDataDir}`,
@@ -176,7 +236,7 @@ export class CdpBrowser {
 
     const childProcess = spawn(executablePath, args, { stdio: ["ignore", "pipe", "pipe"] });
     try {
-      const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess, executablePath);
+      const webSocketDebuggerUrl = await waitForDevToolsUrl(childProcess, executablePath, lockAction);
       const connection = await CdpConnection.connect(webSocketDebuggerUrl);
       return new CdpBrowser(childProcess, connection);
     } catch (error) {
@@ -308,7 +368,30 @@ export class CdpBrowser {
  * controllable one) without dumping unbounded output into a Notice. */
 const DIAGNOSTIC_OUTPUT_LIMIT = 2000;
 
-function waitForDevToolsUrl(childProcess: ChildProcess, executablePath: string): Promise<string> {
+/** Folds `clearStaleSingletonLock()`'s decision into a launch-failure
+ * message when it's non-trivial (i.e. it found something and chose to
+ * leave it alone) - see docs/risks.md R-05's 2026-08-10 entries for
+ * why this matters: without it, a recurrence of the same failure gives
+ * no signal on *why* the lock wasn't cleared this time. */
+function describeLockAction(action: SingletonLockAction): string {
+  switch (action.kind) {
+    case "alive":
+      return action.command
+        ? ` A SingletonLock referencing pid ${action.pid} (command: "${action.command}") was found and left in place because that process still appears to be running.`
+        : ` A SingletonLock referencing pid ${action.pid} was found; that pid appears alive but its command could not be determined, so it was left in place to be safe.`;
+    case "unparseable":
+      return ` A SingletonLock was found but its target ("${action.target}") didn't look like the expected "<hostname>-<pid>" shape, so it was left in place.`;
+    case "cleared":
+    case "none":
+      return "";
+  }
+}
+
+function waitForDevToolsUrl(
+  childProcess: ChildProcess,
+  executablePath: string,
+  lockAction: SingletonLockAction,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let stderrBuffer = "";
     let combinedBuffer = "";
@@ -325,7 +408,8 @@ function waitForDevToolsUrl(childProcess: ChildProcess, executablePath: string):
       const output = combinedBuffer.trim().slice(0, DIAGNOSTIC_OUTPUT_LIMIT);
       return new Error(
         `${reason} (launched "${executablePath}")` +
-          (output.length > 0 ? ` - output: ${output}` : " - no output was produced."),
+          (output.length > 0 ? ` - output: ${output}` : " - no output was produced.") +
+          describeLockAction(lockAction),
       );
     };
 
