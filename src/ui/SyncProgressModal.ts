@@ -1,7 +1,7 @@
 import { App, Modal } from "obsidian";
 import type { SyncResult } from "../sync/SyncProgress";
 
-/** Shows a completed sync's result summary (spec: 同期結果の表示). */
+/** Shows a completed sync's result summary (spec: "display of sync result"). */
 export class SyncProgressModal extends Modal {
   constructor(
     app: App,

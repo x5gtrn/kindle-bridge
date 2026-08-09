@@ -37,8 +37,8 @@ describe("parseBookList", () => {
       expect(book).toBeDefined();
       expect(book?.id).toBe("B0JPBOOK0001");
       expect(book?.asin).toBe("B0JPBOOK0001");
-      expect(book?.title).toBe("達人プログラマーへの道");
-      expect(book?.authors).toEqual(["サンプル 太郎"]);
+      expect(book?.title).toBe("The Road to Being a Pragmatic Programmer");
+      expect(book?.authors).toEqual(["Sample Taro"]);
       expect(book?.coverImageUrl).toBe("https://m.media-amazon.com/images/I/jp-sample-cover-1.jpg");
       expect(book?.lastAnnotatedAt).toBe("2026-07-15");
       expect(book?.amazonUrl).toBe("https://www.amazon.co.jp/dp/B0JPBOOK0001");
@@ -46,13 +46,13 @@ describe("parseBookList", () => {
     });
 
     it("strips the Japanese author-name prefix", () => {
-      expect(books[0]?.authors).not.toContain("著者： サンプル 太郎");
+      expect(books[0]?.authors).not.toContain("著者： Sample Taro");
     });
 
     it("handles a book missing author, cover image, and last-annotated date", () => {
       const book = books[1];
       expect(book).toBeDefined();
-      expect(book?.title).toBe("タイトルのみのサンプル書籍");
+      expect(book?.title).toBe("Title-Only Sample Book (JP)");
       expect(book?.authors).toEqual([]);
       expect(book?.coverImageUrl).toBeUndefined();
       expect(book?.lastAnnotatedAt).toBeUndefined();
@@ -66,8 +66,8 @@ describe("parseBookList", () => {
         <div id="B0JPBOOK0099" class="a-row kp-notebook-library-each-book">
           <span class="a-declarative" data-action="get-annotations-for-asin">
             <a class="a-link-normal a-text-normal" href="javascript:void(0);">
-              <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">英語表記の日付を持つサンプル書籍</h2>
-              <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable">著者： 英語 花子</p>
+              <h2 class="a-size-base a-color-base a-text-center kp-notebook-searchable a-text-bold">Sample Book With an English-Rendered Date</h2>
+              <p class="a-spacing-base a-spacing-top-mini a-text-center a-size-base a-color-secondary kp-notebook-searchable">著者： Hanako English</p>
             </a>
           </span>
           <input type="hidden" name="" value="Sunday, August 9, 2026" id="kp-notebook-annotated-date-B0JPBOOK0099" />
@@ -76,7 +76,7 @@ describe("parseBookList", () => {
     `;
     const [book] = parseBookList(html, getAmazonRegion("jp"));
     expect(book).toBeDefined();
-    expect(book?.authors).toEqual(["英語 花子"]);
+    expect(book?.authors).toEqual(["Hanako English"]);
     expect(book?.lastAnnotatedAt).toBe("2026-08-09");
   });
 

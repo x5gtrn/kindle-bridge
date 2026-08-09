@@ -82,11 +82,11 @@ describe("parseAnnotations", () => {
   });
 
   describe("Japan region", () => {
-    it("parses Japanese highlight text and location", () => {
+    it("parses highlight text and location for a JP-region book", () => {
       const html = loadFixture("annotations-jp.html");
       const annotations = parseAnnotations(html, "book-jp-1", getAmazonRegion("jp"));
       expect(annotations).toHaveLength(1);
-      expect(annotations[0]?.text).toBe("人は見た目が9割。");
+      expect(annotations[0]?.text).toBe("This is a sample highlight from a Japan-region book.");
       expect(annotations[0]?.location).toBe("300");
     });
   });

@@ -26,7 +26,7 @@ MIT permits reuse (including verbatim code) provided the copyright and permissio
 ### Explicitly redesigned, not reused
 
 - **HTML scraping layer**: rebuilt behind a `KindleReaderClient` + parser boundary with defensive checks (expected-element-count assertions) that fail with an explicit "Amazon page structure may have changed" error instead of silently returning empty data. See §6.
-- **Annotation identity**: reference project hashes `title` only (Fletcher checksum) for book IDs and has no stable annotation ID at all. We use ASIN when available for book identity, and a deterministic SHA-256-based ID (spec §"安定したAnnotation ID") for annotations — see `src/models`.
+- **Annotation identity**: reference project hashes `title` only (Fletcher checksum) for book IDs and has no stable annotation ID at all. We use ASIN when available for book identity, and a deterministic SHA-256-based ID (spec §"stable annotation ID") for annotations — see `src/models`.
 - **Login modal robustness**: explicit success/failure/cancelled/timeout states are modeled (see §4), rather than treating "modal closed early" as silent cancellation.
 - **`electron.remote`**: deprecated since Electron 14. We do not use it; see §4 for the constraint this creates and how we work within it.
 

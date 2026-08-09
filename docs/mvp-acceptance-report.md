@@ -127,44 +127,44 @@ half (not testable here), both are noted.
 
 | Item | Status | Evidence | Manual Test Required |
 |---|---|---|---|
-| ObsidianでPluginを読み込める | NOT TESTED | `manifest.json` valid, `main.ts` exports a `Plugin` subclass, build produces `main.js` | §1.1-1.4 of manual-test-checklist.md |
-| Settings画面を開ける | NOT TESTED | `KindleBridgeSettingTab` implements `display()` correctly; registered via `addSettingTab` | §2 |
-| Amazon Japanを選択できる | PARTIAL | Region data + settings persistence logic: PASS (`AmazonRegion.spec.ts`, `KindleBridgeSettings.spec.ts`). UI interaction: NOT TESTED | §2.1 |
-| Amazon Global / United Statesを選択できる | PARTIAL | Same as above | §2.2 |
-| Amazon公式ログイン画面を表示できる | NOT TESTED | Implemented via real `BrowserWindow` navigation (`AmazonAuthService.ts`); guarded-fallback path is tested, the live path is not | §3.1 |
-| MFAをAmazon公式画面上で処理できる | NOT TESTED | By design, not intercepted - nothing to unit test | §3.2 |
-| CAPTCHA発生時に安全に停止または案内できる | NOT TESTED | No bypass code exists (verified by review); a 5-minute timeout produces a Notice if navigation never completes. Not exercised against a real CAPTCHA | §3.3 |
-| Amazonセッションを確認できる | NOT TESTED | `AmazonSessionService` implemented; only its Electron-unavailable fallback is unit tested | §3.4 |
-| Sign outできる | NOT TESTED | Same as above | §3.6 |
-| 手動同期を実行できる | PARTIAL | Orchestration logic: PASS (12 tests in `KindleSyncService.spec.ts`). Live execution against real Amazon: NOT TESTED | §4.1 |
-| 同時に複数の同期が走らない | PASS | `SyncCoordinator.spec.ts` - explicit concurrent-call rejection test, no live dependency needed | - |
-| Amazon Japanの書籍一覧を取得できる | PARTIAL | Parsing logic: PASS (`KindleBookParser.spec.ts`, Japan fixture). Live fetch: NOT TESTED | §4.1, §4.3 |
-| Amazon Globalの書籍一覧を取得できる | PARTIAL | Same, Global fixture | §4.1, §4.3 |
-| Highlightを取得できる | PARTIAL | Parsing logic PASS (`KindleAnnotationParser.spec.ts`). Live fetch NOT TESTED | §4.4 |
-| Memoを取得できる | PARTIAL | Parsing logic PASS. Live fetch NOT TESTED | §4.5 |
-| HighlightとMemoを正しく関連付けられる | PASS* | Thoroughly unit tested (highlight-only, highlight+memo, memo-only cases). *Caveat: fixture HTML structure is our best-effort reconstruction of Amazon's real markup (docs/risks.md R-02), not captured from a live page | §4.5 |
-| Locationを取得できる | PASS* | Tested (present/absent/blank-value cases). Same fixture caveat | §5.7 |
-| Pageを取得できる | PASS* | Tested. Same fixture caveat | §5.8 |
-| 作成日を取得できる | PASS* | Tested (JP and Global date formats, present/absent). Same fixture caveat | §5.9 |
-| 書籍ごとのMarkdownを生成できる | PASS | `BookNoteRenderer.spec.ts` (16 tests), `BookNoteRepository.spec.ts` (17 tests against an in-memory fake Vault) | §5.1-5.2 |
-| 表紙画像をAmazon URLで表示できる | PARTIAL | Markdown generation of the image embed: PASS. Actual image load/display inside Obsidian: NOT TESTED | §5.3 |
-| 表紙画像からAmazonページへ遷移できる | PARTIAL | Renderer wraps the cover in a link to `amazonUrl`: PASS (explicit assertion). Actual click-through in Obsidian's UI: NOT TESTED | §5.4 |
-| 同名書籍のファイル名衝突を回避できる | PASS | `BookNoteRepository.spec.ts`: "disambiguates the file name when an unrelated file already occupies the plain path" | - |
-| 不正文字を含む書籍タイトルを保存できる | PASS | `FileNameSanitizer.spec.ts` (unit) + new integration test in `BookNoteRepository.spec.ts`: "saves a book note when the title contains characters illegal in file names" | - |
-| ユーザー編集領域を保持できる | PASS | `BookNoteRepository.spec.ts`: "preserves user content outside the generated block on update" | §5.15 |
-| 管理ブロックのみを更新できる | PASS | Same test, plus 3 broken-marker tests (missing end, missing start, reversed order) all added this audit | §5.16 |
-| 再同期でAnnotationが不必要に重複しない | PASS | The generated block is fully replaced (not appended) on every sync - verified via the same preservation test asserting stale content is gone, not duplicated alongside new content | §4.2 |
-| 一冊の取得失敗で他の書籍を継続できる | PASS | `KindleSyncService.spec.ts`: mixed success/failure test, plus new explicit `TransientNetworkError` and `KindleParseError` isolation tests | §4.8 |
-| 認証切れ時に同期を停止できる | PASS | Pre-flight `isSessionValid()` check and reactive mid-sync `AmazonSessionExpiredError` handling both tested as continuation-breaking | §3.5 |
-| Amazon HTML変更時に分かりやすいエラーを表示できる | PASS | `KindleParseError` → "Amazon's page structure may have changed" message, tested in both parser spec files and via `BookListFetchError` wrapping | - |
-| Cookieをログへ出力しない | PASS | Verified by code review (cookies are never read by any code in this project - see docs/architecture.md §4) and by `logger.spec.ts`'s masking tests as defense-in-depth | §Security spot-checks |
-| Passwordを保存しない | PASS | No password field exists anywhere in the codebase; `LoginModal` has no input fields (confirm/cancel buttons only) | §Security spot-checks |
-| OTPを保存しない | PASS | No OTP handling code exists | §Security spot-checks |
-| Amazonレスポンス全文をログへ出力しない | PASS | Verified by grepping every `logger.*()` call site | §Security spot-checks |
-| HighlightやMemoの全文を通常ログへ出力しない | PASS | `annotation.text`/`annotation.memo` only ever flow into `BookNoteRenderer`'s Markdown output, never into a `logger.*()` call (grep-verified) | - |
-| READMEにMVPの制約が記載されている | PASS | README.md "MVP limitations" section | - |
-| ライセンス表示が適切である | PASS | `LICENSE` (MIT), `package.json` license field, README License section all consistent | - |
-| 参考リポジトリへの謝辞が適切である | PASS | README Acknowledgements section credits hadynz/obsidian-kindle-plugin (MIT) | - |
+| Can load the plugin in Obsidian | NOT TESTED | `manifest.json` valid, `main.ts` exports a `Plugin` subclass, build produces `main.js` | §1.1-1.4 of manual-test-checklist.md |
+| Can open the Settings screen | NOT TESTED | `KindleBridgeSettingTab` implements `display()` correctly; registered via `addSettingTab` | §2 |
+| Can select Amazon Japan | PARTIAL | Region data + settings persistence logic: PASS (`AmazonRegion.spec.ts`, `KindleBridgeSettings.spec.ts`). UI interaction: NOT TESTED | §2.1 |
+| Can select Amazon Global / United States | PARTIAL | Same as above | §2.2 |
+| Can display Amazon's official sign-in page | NOT TESTED | Implemented via real `BrowserWindow` navigation (`AmazonAuthService.ts`); guarded-fallback path is tested, the live path is not | §3.1 |
+| Can handle MFA on Amazon's official page | NOT TESTED | By design, not intercepted - nothing to unit test | §3.2 |
+| Can safely stop or guide the user when a CAPTCHA occurs | NOT TESTED | No bypass code exists (verified by review); a 5-minute timeout produces a Notice if navigation never completes. Not exercised against a real CAPTCHA | §3.3 |
+| Can check the Amazon session | NOT TESTED | `AmazonSessionService` implemented; only its Electron-unavailable fallback is unit tested | §3.4 |
+| Can sign out | NOT TESTED | Same as above | §3.6 |
+| Can run a manual sync | PARTIAL | Orchestration logic: PASS (12 tests in `KindleSyncService.spec.ts`). Live execution against real Amazon: NOT TESTED | §4.1 |
+| Multiple syncs do not run concurrently | PASS | `SyncCoordinator.spec.ts` - explicit concurrent-call rejection test, no live dependency needed | - |
+| Can fetch the Amazon Japan book list | PARTIAL | Parsing logic: PASS (`KindleBookParser.spec.ts`, Japan fixture). Live fetch: NOT TESTED | §4.1, §4.3 |
+| Can fetch the Amazon Global book list | PARTIAL | Same, Global fixture | §4.1, §4.3 |
+| Can fetch highlights | PARTIAL | Parsing logic PASS (`KindleAnnotationParser.spec.ts`). Live fetch NOT TESTED | §4.4 |
+| Can fetch notes | PARTIAL | Parsing logic PASS. Live fetch NOT TESTED | §4.5 |
+| Can correctly associate a highlight with its note | PASS* | Thoroughly unit tested (highlight-only, highlight+note, note-only cases). *Caveat: fixture HTML structure is our best-effort reconstruction of Amazon's real markup (docs/risks.md R-02), not captured from a live page | §4.5 |
+| Can fetch the location | PASS* | Tested (present/absent/blank-value cases). Same fixture caveat | §5.7 |
+| Can fetch the page | PASS* | Tested. Same fixture caveat | §5.8 |
+| Can fetch the creation date | PASS* | Tested (JP and Global date formats, present/absent). Same fixture caveat | §5.9 |
+| Can generate Markdown per book | PASS | `BookNoteRenderer.spec.ts` (16 tests), `BookNoteRepository.spec.ts` (17 tests against an in-memory fake Vault) | §5.1-5.2 |
+| Can display the cover image via an Amazon URL | PARTIAL | Markdown generation of the image embed: PASS. Actual image load/display inside Obsidian: NOT TESTED | §5.3 |
+| Can navigate from the cover image to the Amazon page | PARTIAL | Renderer wraps the cover in a link to `amazonUrl`: PASS (explicit assertion). Actual click-through in Obsidian's UI: NOT TESTED | §5.4 |
+| Can avoid file name collisions for books with the same title | PASS | `BookNoteRepository.spec.ts`: "disambiguates the file name when an unrelated file already occupies the plain path" | - |
+| Can save a book title containing illegal characters | PASS | `FileNameSanitizer.spec.ts` (unit) + new integration test in `BookNoteRepository.spec.ts`: "saves a book note when the title contains characters illegal in file names" | - |
+| Can preserve the user-edited region | PASS | `BookNoteRepository.spec.ts`: "preserves user content outside the generated block on update" | §5.15 |
+| Can update only the managed block | PASS | Same test, plus 3 broken-marker tests (missing end, missing start, reversed order) all added this audit | §5.16 |
+| Annotations are not unnecessarily duplicated on re-sync | PASS | The generated block is fully replaced (not appended) on every sync - verified via the same preservation test asserting stale content is gone, not duplicated alongside new content | §4.2 |
+| Can continue with other books when one book's fetch fails | PASS | `KindleSyncService.spec.ts`: mixed success/failure test, plus new explicit `TransientNetworkError` and `KindleParseError` isolation tests | §4.8 |
+| Can stop the sync when authentication has expired | PASS | Pre-flight `isSessionValid()` check and reactive mid-sync `AmazonSessionExpiredError` handling both tested as continuation-breaking | §3.5 |
+| Can show a clear error when Amazon's HTML changes | PASS | `KindleParseError` → "Amazon's page structure may have changed" message, tested in both parser spec files and via `BookListFetchError` wrapping | - |
+| Does not output cookies to the log | PASS | Verified by code review (cookies are never read by any code in this project - see docs/architecture.md §4) and by `logger.spec.ts`'s masking tests as defense-in-depth | §Security spot-checks |
+| Does not store the password | PASS | No password field exists anywhere in the codebase; `LoginModal` has no input fields (confirm/cancel buttons only) | §Security spot-checks |
+| Does not store the OTP | PASS | No OTP handling code exists | §Security spot-checks |
+| Does not output the full Amazon response to the log | PASS | Verified by grepping every `logger.*()` call site | §Security spot-checks |
+| Does not output the full text of highlights or notes to the normal log | PASS | `annotation.text`/`annotation.memo` only ever flow into `BookNoteRenderer`'s Markdown output, never into a `logger.*()` call (grep-verified) | - |
+| The README documents the MVP's limitations | PASS | README.md "MVP limitations" section | - |
+| License display is appropriate | PASS | `LICENSE` (MIT), `package.json` license field, README License section all consistent | - |
+| Acknowledgement of the reference repository is appropriate | PASS | README Acknowledgements section credits hadynz/obsidian-kindle-plugin (MIT) | - |
 
 ## Build and Test Results
 
@@ -307,8 +307,8 @@ security review, or Obsidian API review.
   method is already there and already tested.
 - **Bundle weight**: cheerio's `undici` sub-dependency is bundled but never invoked
   (informational only, not a functional or security issue).
-- **Design simplification, documented not hidden**: "Amazon未ログイン" and
-  "セッション期限切れ" collapse into the same code path and the same user-facing
+- **Design simplification, documented not hidden**: "not logged in to Amazon" and
+  "session expired" collapse into the same code path and the same user-facing
   message (`AmazonSessionExpiredError` / "your Amazon session has expired"), since
   `isSessionValid()` has no way to distinguish "never logged in" from "expired" given
   only a URL-redirect check. Functionally correct (the guidance - sign in again - is

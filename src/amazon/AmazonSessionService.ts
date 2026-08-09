@@ -11,8 +11,9 @@ const PAGE_LOAD_TIMEOUT_MS = 30 * 1000;
 
 /** Thrown when Amazon redirects to its sign-in page instead of serving
  * the requested page - a continuation-breaking error that must stop the
- * whole sync (spec: "認証切れなど、継続不能なエラーの場合のみ全体を停止"),
- * not just the single book being fetched. */
+ * whole sync (spec: "only stop the entire sync for continuation-breaking
+ * errors, such as an expired session"), not just the single book being
+ * fetched. */
 export class AmazonSessionExpiredError extends Error {
   constructor() {
     super("The Amazon session has expired. Please sign in again.");

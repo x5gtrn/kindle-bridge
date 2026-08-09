@@ -11,7 +11,7 @@ export class SyncAlreadyInProgressError extends Error {
 
 /**
  * Single entry point for manual sync. Owns only the re-entrancy lock
- * (spec: "同時に複数の同期を実行しないでください") so callers (commands,
+ * (spec: "do not run multiple syncs at the same time") so callers (commands,
  * ribbon icon) never need to worry about concurrent syncs themselves.
  * The sync service is passed in per call (rather than fixed at
  * construction) so the caller can build one from current settings

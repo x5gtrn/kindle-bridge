@@ -1,4 +1,4 @@
-/** Summary shown to the user after a sync run completes (spec: 同期結果). */
+/** Summary shown to the user after a sync run completes (spec: "sync result"). */
 export interface SyncResult {
   booksFound: number;
   /** Book-note *files* created/updated in the vault - not to be

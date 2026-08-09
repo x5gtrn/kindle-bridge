@@ -32,7 +32,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 1.2 Vault へのPlugin配置
+### 1.2 Plugin placement in the vault
 
 **Steps:** Create (or locate) `<vault>/.obsidian/plugins/kindle-bridge/`. Copy `manifest.json`, `main.js`, and (if present) `styles.css` into it.
 
@@ -41,7 +41,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 1.3 Community Plugins での有効化
+### 1.3 Enabling via Community Plugins
 
 **Steps:** Open Obsidian → Settings → Community plugins. If needed, turn off Restricted Mode. Find "Kindle Bridge" in the installed list and enable it.
 
@@ -50,7 +50,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 1.4 Console の確認
+### 1.4 Console check
 
 **Steps:** With the plugin enabled, open the Developer Console. Reload Obsidian (Cmd/Ctrl+R) or disable+re-enable the plugin.
 
@@ -63,7 +63,7 @@ Notes:
 
 ## 2. Settings
 
-### 2.1 Japan 選択
+### 2.1 Selecting Japan
 
 **Steps:** Open plugin settings. Set "Amazon region" to "Japan". Close and reopen the settings tab.
 
@@ -72,7 +72,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.2 Global 選択
+### 2.2 Selecting Global
 
 **Steps:** Same as above, selecting "Global / United States".
 
@@ -81,7 +81,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.3 Output folder 変更
+### 2.3 Changing the output folder
 
 **Steps:** Change "Output folder" to a custom path, e.g. `Reading/Kindle`. Run a sync (see section 4) afterward.
 
@@ -90,7 +90,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.4 Cover image 表示の ON/OFF
+### 2.4 Cover image display ON/OFF
 
 **Steps:** Toggle "Display cover image" off, sync a book, then toggle it on and sync again (or sync a different book).
 
@@ -99,7 +99,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.5 Debug logging の ON/OFF
+### 2.5 Debug logging ON/OFF
 
 **Steps:** Toggle "Debug logging" on. Open the Developer Console. Run a sync. Toggle it off and sync again.
 
@@ -108,7 +108,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.6 再起動後の設定保持
+### 2.6 Settings persist after restart
 
 **Steps:** Set region to Global, output folder to a custom value, all toggles to non-default values, and a custom Daily Note folder/date format. Fully quit and relaunch Obsidian (not just reload the window).
 
@@ -117,7 +117,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.7 Daily Note summary の設定 - Phase 4
+### 2.7 Daily Note summary settings - Phase 4
 
 **Steps:** Enable "Daily Note summary". Set "Daily Note folder" and "Daily Note date format" to match your real Daily Notes plugin settings (Settings → Daily notes, if you use it).
 
@@ -126,7 +126,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.8 自動/定期同期の設定 - Phase 4
+### 2.8 Automatic/interval sync settings - Phase 4
 
 **Steps:** Open Settings. Confirm "Sync on startup", "Automatic interval sync" (both toggles), and "Sync interval (minutes)" (a slider) are present and save correctly. Try dragging the slider - confirm it only allows 15-360 in 15-minute steps (can't be set below 15 or above 360 from the UI).
 
@@ -135,7 +135,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 2.9 追加リージョンの表示 - Phase 4 (selection only, not a real sync test)
+### 2.9 Additional region display - Phase 4 (selection only, not a real sync test)
 
 **Steps:** Open the "Amazon region" dropdown. Confirm all 8 regions appear, with United Kingdom/Germany/France/Spain/Italy/Netherlands each labeled "(unverified)".
 
@@ -202,7 +202,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 3.7 Region 変更後の再ログイン要否
+### 3.7 Whether re-login is required after changing region
 
 **Steps:** Sign in while region = Japan. Switch region to Global in settings. Run "Sync now".
 
@@ -215,7 +215,7 @@ Notes: _(This is a genuine open question our design didn't explicitly resolve - 
 
 ## 4. Sync
 
-### 4.1 初回同期 (first sync)
+### 4.1 First sync
 
 **Steps:** With a valid session and at least one annotated book on Amazon, run "Sync now".
 
@@ -224,7 +224,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.2 再同期 (re-sync)
+### 4.2 Re-sync
 
 **Steps:** Immediately run "Sync now" again without changing anything on Amazon.
 
@@ -233,7 +233,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.3 複数書籍 (multiple books)
+### 4.3 Multiple books
 
 **Steps:** Ensure your Amazon account has 2+ annotated books, then sync.
 
@@ -242,7 +242,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.4 Highlight のみの書籍
+### 4.4 A book with highlights only
 
 **Steps:** Sync a book that has highlights but no notes attached.
 
@@ -251,7 +251,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.5 Note ありの書籍
+### 4.5 A book with a note
 
 **Steps:** Sync a book where at least one highlight has an attached note.
 
@@ -260,7 +260,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.6 空データ (a book with zero annotations, if reachable)
+### 4.6 Empty data (a book with zero annotations, if reachable)
 
 **Steps:** Hard to force via the UI since Amazon's notebook normally only lists annotated books. If you can identify or contrive such a case, sync it - first when no note exists yet for that book, then again after deleting all its highlights/notes on Amazon when a note **does** already exist (e.g. sync it once with a highlight present, delete that highlight on Amazon, sync again).
 
@@ -269,7 +269,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.7 通信切断 (network disconnect mid-sync)
+### 4.7 Network disconnect mid-sync
 
 **Steps:** Start a sync with several books, then disable your network connection partway through.
 
@@ -278,7 +278,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.8 一部書籍の失敗 (partial failure)
+### 4.8 Partial failure (some books fail)
 
 **Steps:** If you can contrive a single-book failure (e.g., a book whose ASIN is unusual), sync a set including it.
 
@@ -287,7 +287,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.9 同期の二重起動 (double-triggering sync)
+### 4.9 Double-triggering sync
 
 **Steps:** Click the ribbon icon (or run "Sync now") twice in quick succession, before the first finishes.
 
@@ -296,7 +296,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.10 ライブラリから削除された本 (a book removed from the Kindle library) - Phase 4
+### 4.10 A book removed from the Kindle library - Phase 4
 
 **Steps:** Sync normally so a book gets a note. Then either archive/remove that book from your Kindle library on Amazon, or (safer for testing) temporarily rename it in a way that changes its ASIN visibility - whatever reliably makes it absent from the next `fetchBookListHtml()` result. Sync again.
 
@@ -305,7 +305,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.11 削除フラグの自己修復 (missing-book flag self-heals on reappearance) - Phase 4
+### 4.11 Missing-book flag self-heals on reappearance - Phase 4
 
 **Steps:** Following on from 4.10, restore the book to your Kindle library (undo whatever made it disappear), then sync again.
 
@@ -314,7 +314,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.12 Daily Note summary の実際の追記 (Phase 4)
+### 4.12 Daily Note summary actually appends (Phase 4)
 
 **Steps:** With "Daily Note summary" enabled (2.7) and its folder/date format matching a Daily Note you already have open/created for today, run a sync that creates or updates at least one book note. Then run "Sync now" again immediately with nothing changed on Amazon's side.
 
@@ -323,7 +323,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.13 Daily Note が存在しない場合 (Phase 4)
+### 4.13 When the Daily Note does not exist (Phase 4)
 
 **Steps:** Make sure today's Daily Note does **not** exist yet (delete it if a previous test created one, or pick a date format that resolves to a nonexistent file). With "Daily Note summary" enabled, run a sync that creates/updates a note.
 
@@ -332,7 +332,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.14 起動時の自動同期 (sync on startup) - Phase 4
+### 4.14 Sync on startup - Phase 4
 
 **Steps:** Enable "Sync on startup" (2.8). Fully quit and relaunch Obsidian.
 
@@ -341,7 +341,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.15 定期同期 (interval sync) - Phase 4
+### 4.15 Interval sync - Phase 4
 
 **Steps:** Enable "Automatic interval sync" with the interval slider at its minimum (15 minutes). Reload the plugin (or restart Obsidian) so the new interval is registered. Leave Obsidian open and wait.
 
@@ -350,7 +350,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.16 自動同期の失敗は静かに (silent failure on automatic sync) - Phase 4
+### 4.16 Silent failure on automatic sync - Phase 4
 
 **Steps:** Sign out from Amazon (or otherwise let your session expire). With "Sync on startup" or interval sync enabled, trigger an automatic sync (restart Obsidian, or wait for the interval).
 
@@ -359,7 +359,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 4.17 間隔設定変更の反映タイミング (Phase 4)
+### 4.17 Timing of interval-setting changes taking effect (Phase 4)
 
 **Steps:** With interval sync already enabled and running, change "Sync interval (minutes)" to a different value without reloading the plugin.
 
@@ -374,7 +374,7 @@ Notes:
 
 For all of these, after syncing, open the resulting note(s) in Obsidian (both in Source Mode and Reading/Live Preview Mode where noted).
 
-### 5.1 書籍ノート作成
+### 5.1 Book note creation
 
 Expected result: One `.md` file per synced book exists under the configured output folder.
 Actual result:
@@ -443,7 +443,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.10 日本語タイトル (Japanese title)
+### 5.10 Japanese title
 
 **Steps:** Sync a Japan-region book with a Japanese title/author.
 
@@ -452,14 +452,14 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.11 英語タイトル (English title)
+### 5.11 English title
 
 Expected result: Same as above for a Global-region English-titled book.
 Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.12 長いタイトル (long title)
+### 5.12 Long title
 
 **Steps:** Sync a book with an unusually long title (100+ characters) if you have one.
 
@@ -468,7 +468,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.13 特殊文字入りタイトル (title with special characters)
+### 5.13 Title with special characters
 
 **Steps:** Sync a book whose title contains characters like `:`, `?`, `"`, `/`, or similar, if you have one.
 
@@ -477,7 +477,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.14 同名書籍 (duplicate title)
+### 5.14 Duplicate title
 
 **Steps:** If two different books share an identical (or identically-sanitized) title, sync both.
 
@@ -486,7 +486,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.15 ユーザー編集領域の保持 (user-edited region survives resync)
+### 5.15 User-edited region survives resync
 
 **Steps:** Open a synced note. Add your own text under `## My Notes`, and also add a sentence somewhere between the frontmatter and `## Highlights and Notes` (e.g. right after the `# Title` heading). Save. Run "Sync now" again for the same book.
 
@@ -495,7 +495,7 @@ Actual result:
 Status: PASS / FAIL / BLOCKED
 Notes:
 
-### 5.16 管理ブロック外の保持 (content outside the generated block survives)
+### 5.16 Content outside the generated block survives
 
 **Steps:** In the same note, also try lightly editing something *inside* the generated block region between the `<!-- kindle-bridge:generated:start -->` / `:end -->` comments (e.g. add a stray line), then resync.
 

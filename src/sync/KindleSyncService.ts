@@ -17,7 +17,7 @@ import { emptySyncResult, type SyncResult } from "./SyncProgress";
 /**
  * Orchestrates fetching books/annotations from Amazon, normalizing them,
  * and persisting book notes via the markdown layer - the full manual
- * sync flow from docs/architecture.md §"手動同期フロー" (session check ->
+ * sync flow from docs/architecture.md §"manual sync flow" (session check ->
  * book list -> per-book annotations -> render -> save -> SyncResult).
  * SyncCoordinator only adds the single-flight lock around this.
  */
@@ -148,8 +148,9 @@ function countNotes(annotations: KindleAnnotation[]): number {
 }
 
 /** Errors that make the rest of the sync pointless or unsafe to
- * continue (spec: "認証切れなど、継続不能なエラーの場合のみ全体を停止") -
- * everything else is scoped to the one book/request that failed. */
+ * continue (spec: "only stop the entire sync for continuation-breaking
+ * errors, such as an expired session") - everything else is scoped to
+ * the one book/request that failed. */
 function isContinuationBreakingError(error: unknown): boolean {
   return (
     error instanceof AmazonSessionExpiredError ||

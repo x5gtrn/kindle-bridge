@@ -3,7 +3,7 @@ import { getAmazonRegion } from "./AmazonRegion";
 import { parseAmazonDate } from "./parseAmazonDate";
 
 describe("parseAmazonDate", () => {
-  it("parses the Japanese YYYY年M月D日 format", () => {
+  it("parses the Japanese kanji year-month-day format", () => {
     expect(parseAmazonDate("2026年8月1日", getAmazonRegion("jp"))).toBe("2026-08-01");
   });
 
