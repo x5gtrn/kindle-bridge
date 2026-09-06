@@ -78,7 +78,7 @@ describe("runWithConcurrencyLimit", () => {
     const tasks = Array.from({ length: 6 }, () => async () => {
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise((resolve) => window.setTimeout(resolve, 5));
       inFlight -= 1;
       return true;
     });

@@ -16,7 +16,7 @@ export interface RetryOptions {
 }
 
 const defaultSleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  new Promise((resolve) => window.setTimeout(resolve, ms));
 
 /**
  * Runs `fn`, retrying with exponential backoff while `isRetryable`

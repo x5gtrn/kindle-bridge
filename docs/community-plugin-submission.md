@@ -22,7 +22,7 @@ This document was prepared by fetching Obsidian's current developer documentatio
 | Author | Daisuke Masuda |
 | Description | Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your vault. |
 | Repository | `https://github.com/x5gtrn/kindle-bridge` |
-| Current version | 1.0.1 |
+| Current version | 1.0.2 |
 | minAppVersion | 1.4.4 |
 | isDesktopOnly | true |
 | License | MIT |
@@ -37,7 +37,7 @@ Note: the GitHub repository was renamed from `Obsidian-Kindle-Bridge` to `kindle
 - [ ] An Obsidian account, used to sign in at [community.obsidian.md](https://community.obsidian.md).
 - [ ] `README.md` in the repository root describing the plugin's purpose and usage (done).
 - [ ] `LICENSE` in the repository root (done — MIT).
-- [ ] `manifest.json` in the repository root, accurate and committed to the default branch (verify the HEAD of `main` has the `1.0.1` version before submitting/updating, since the directory processes `manifest.json` at HEAD, not at the tagged release).
+- [ ] `manifest.json` in the repository root, accurate and committed to the default branch (verify the HEAD of `main` has the `1.0.2` version before submitting/updating, since the directory processes `manifest.json` at HEAD, not at the tagged release).
 
 ## Step 1: Publish to GitHub
 
@@ -45,11 +45,11 @@ Already done — this repository is hosted at `https://github.com/x5gtrn/kindle-
 
 ## Step 2: Create a release
 
-1. Confirm `manifest.json`'s `version` is `1.0.1` (Semantic Versioning, format `x.y.z`) — done.
-2. Create a Git tag matching the version **exactly, with no `v` prefix**: `1.0.1`. Pushing this tag triggers `.github/workflows/release.yml`, which builds and creates a **draft** GitHub Release with `main.js` and `manifest.json` attached (no `styles.css` — this plugin doesn't ship one).
-3. Review the draft release, add release notes (see [`docs/release-notes-1.0.1.md`](release-notes-1.0.1.md), written to be usable as-is), and select **Publish release**.
+1. Confirm `manifest.json`'s `version` is `1.0.2` (Semantic Versioning, format `x.y.z`) — done.
+2. Create a Git tag matching the version **exactly, with no `v` prefix**: `1.0.2`. Pushing this tag triggers `.github/workflows/release.yml`, which builds and creates a **draft** GitHub Release with `main.js` and `manifest.json` attached (no `styles.css` — this plugin doesn't ship one).
+3. Review the draft release, add release notes (see [`CHANGELOG.md`](../CHANGELOG.md) `[1.0.2]`), and select **Publish release**.
 
-`1.0.0` was already tagged and pushed to `origin` (see `git tag -l`). This section now describes the *next* release, `1.0.1` — a patch release fixing the Obsidian plugin review findings documented in `CHANGELOG.md`.
+`1.0.0` and `1.0.1` were already tagged and pushed to `origin` (see `git tag -l`). This section now describes the *next* release, `1.0.2` — a patch release addressing the community scorecard warnings documented in `CHANGELOG.md`.
 
 Obsidian downloads `main.js`, `manifest.json`, and `styles.css` (if present) from the GitHub Release whose tag matches the `version` in `manifest.json` — the committed `manifest.json` in the repo is only used to determine the *latest available version*, not to serve the actual files.
 
@@ -62,7 +62,7 @@ Obsidian downloads `main.js`, `manifest.json`, and `styles.css` (if present) fro
    - **Owner**: yourself (or an organization, if applicable).
 4. Review and agree to the [Developer policies](https://docs.obsidian.md/Developer+policies), confirm ongoing support commitment, and select **Submit**.
 
-The directory reads `manifest.json` from the HEAD of the default branch (`main`) to validate the submission — make sure `main` has the `1.0.1` manifest committed before this step.
+The directory reads `manifest.json` from the HEAD of the default branch (`main`) to validate the submission — make sure `main` has the `1.0.2` manifest committed before this step.
 
 ## Step 4: Address automated review feedback
 
@@ -102,16 +102,16 @@ Also required: not allowed to obfuscate code, insert ads, include client-side te
 
 ## Reviewer self-audit notes
 
-This project runs the official [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) (the same rule set Obsidian's own review tooling uses) as part of `npm run lint`, wired into `eslint.config.mjs`. As of this writing, `npm run lint` passes with 0 errors and 3 accepted, documented warnings — no unaddressed errors.
+This project runs the official [`eslint-plugin-obsidianmd`](https://github.com/obsidianmd/eslint-plugin) (the same rule set Obsidian's own review tooling uses) as part of `npm run lint`, wired into `eslint.config.mjs`. As of this writing, `npm run lint` passes with 0 errors and 1 accepted, documented warning — no unaddressed errors.
 
 The following trade-offs were identified during this project's own pre-submission review and are worth having an answer ready for if a reviewer asks:
 
-- **Node.js/Electron API usage** (`child_process.spawn`, `fs`, browser profile directory) is scoped to launching and talking to an external Chromium-based browser for Amazon authentication — not used for vault file I/O, which goes exclusively through the Vault/FileManager APIs. `isDesktopOnly: true` is set accordingly.
+- **Node.js/Electron API usage** (`child_process.spawn`, browser profile directory) is scoped to launching and talking to an external Chromium-based browser for Amazon authentication — not used for vault file I/O, which goes exclusively through the Vault/FileManager APIs. `isDesktopOnly: true` is set accordingly. Production code does not import Node's `fs` module.
 - **Default (non-debug) log level is `info`, not error-only.** The Plugin guidelines suggest the console should show errors only by default. This plugin's `info`-level default is a deliberate choice to keep sync progress visible without enabling debug logging, and never logs credentials or full annotation text at any level (see [SECURITY.md](../SECURITY.md)). Console output is routed through `console.debug`/`console.warn`/`console.error` only (never `console.log`), per `obsidianmd/rule-custom-message`'s `no-console` configuration. This is a soft guideline, not a hard submission requirement, but is worth a one-line explanation if raised in review.
 - **`joinVaultPath()`** (`src/utils/vaultPath.ts`) is a small, hand-rolled path-joining helper used instead of Obsidian's `normalizePath()`, specifically so the Markdown-generation code stays unit-testable outside a running Obsidian instance (`normalizePath` is a runtime-only export of the `obsidian` package, unavailable under Vitest). Inputs are the plugin's own settings values, not arbitrary external input.
 - **`KindleBridgePlugin.pluginSettings`** is deliberately *not* named `settings`, even though that's the conventional name in most plugin examples. As of Obsidian 1.13.0, the base `Plugin` class itself declares an optional `settings?: unknown` field (part of the newer declarative-settings framework). Naming this plugin's own field `settings` would make `eslint-plugin-obsidianmd`'s `no-unsupported-api` rule (correctly) flag every access as requiring 1.13.0, even though the actual runtime behavior has no such dependency — it's a same-name collision at the type level, not a real compatibility issue. Renaming to `pluginSettings` avoids the collision entirely, with zero effect on stored data (the field name is never persisted; `loadData()`/`saveData()` serialize the settings object's own contents, not the class field name).
-- **Two `obsidianmd/no-tfile-tfolder-cast` warnings remain**, both in `src/markdown/BookNoteRepository.spec.ts`'s in-memory `FakeVault` test double (`{ path } as TFile`). The `obsidian` npm package is types-only (no runtime `TFile` class to construct or `instanceof`-check against — confirmed via `node_modules/obsidian/package.json`'s empty `"main"`), and this specific rule cannot be locally disabled (`eslint-comments/no-restricted-disable` blocks it). Left as accepted warnings rather than restructuring the test harness to depend on a real Obsidian runtime.
-- **`obsidianmd/settings-tab/prefer-setting-definitions` warning is intentionally not addressed.** Adopting the declarative `getSettingDefinitions()` API would require raising `minAppVersion` to 1.13.0, narrowing this plugin's supported Obsidian versions for a search-indexing convenience — a deliberate trade-off, documented directly above `KindleBridgeSettingTab`'s class declaration in source.
+- **One `obsidianmd/no-tfile-tfolder-cast` warning remains**, in `src/markdown/BookNoteRepository.spec.ts`'s in-memory `FakeVault` test double (`{ path } as TFile`). The `obsidian` npm package is types-only (no runtime `TFile` class to construct or `instanceof`-check against — confirmed via `node_modules/obsidian/package.json`'s empty `"main"`), and this specific rule cannot be locally disabled (`eslint-comments/no-restricted-disable` blocks it). Left as an accepted warning rather than restructuring the test harness to depend on a real Obsidian runtime.
+- **`getSettingDefinitions()` is implemented alongside `display()`.** Obsidian 1.13+ uses the declarative definitions (so settings appear in in-app settings search); older versions keep rendering through `display()`. `minAppVersion` stays `1.4.4`. Control values are read/written via `getControlValue`/`setControlValue` against `pluginSettings`, not `Plugin.settings`, to avoid the 1.13.0 type-level name collision described above.
 
 ## Announcing (after acceptance)
 

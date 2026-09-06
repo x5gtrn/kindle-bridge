@@ -1,7 +1,7 @@
-import * as cheerio from "cheerio";
 import type { AnnotationType, KindleAnnotation } from "../models/KindleAnnotation";
 import { normalizeForHash, sha256Hex } from "../utils/hash";
 import type { AmazonRegion } from "./AmazonRegion";
+import { elementAttr, elementText, parseHtmlDocument } from "./htmlDocument";
 import { KindleParseError } from "./KindleParseError";
 
 const ANNOTATIONS_CONTAINER_SELECTOR = "#kp-notebook-annotations";
@@ -49,9 +49,9 @@ export function parseAnnotations(
     throw new KindleParseError("received empty annotations page HTML");
   }
 
-  const $ = cheerio.load(html);
+  const document = parseHtmlDocument(html);
 
-  if ($(ANNOTATIONS_CONTAINER_SELECTOR).length === 0) {
+  if (!document.querySelector(ANNOTATIONS_CONTAINER_SELECTOR)) {
     throw new KindleParseError(
       `could not find the annotations container ("${ANNOTATIONS_CONTAINER_SELECTOR}") for book "${bookId}" in region "${region.id}"`,
     );
@@ -59,24 +59,24 @@ export function parseAnnotations(
 
   const annotations: KindleAnnotation[] = [];
 
-  $(ANNOTATION_SELECTOR).each((_index, element) => {
-    const el = $(element);
-
-    const highlightText = el.find("#highlight").first().text().trim();
-    const noteTextRaw = el.find("#note").first().text().trim();
+  for (const el of Array.from(document.querySelectorAll(ANNOTATION_SELECTOR))) {
+    const highlightText = elementText(el.querySelector("#highlight"));
+    const noteTextRaw = elementText(el.querySelector("#note"));
     const note = noteTextRaw.length > 0 ? noteTextRaw : undefined;
 
     // Amazon's UI can't produce a note without an underlying highlight,
     // but defensively drop any block with neither so a stray/empty row
     // never becomes a phantom annotation.
     if (highlightText.length === 0 && !note) {
-      return;
+      continue;
     }
 
     const type: AnnotationType = highlightText.length > 0 ? "highlight" : "note";
     const text = highlightText.length > 0 ? highlightText : (note ?? "");
 
-    const location = firstNonEmpty(el.find("#kp-annotation-location").attr("value"));
+    const location = firstNonEmpty(
+      elementAttr(el.querySelector("#kp-annotation-location"), "value"),
+    );
 
     const id = sha256Hex(
       [region.id, bookId, type, location ?? "", normalizeForHash(text)].join("|"),
@@ -95,7 +95,7 @@ export function parseAnnotations(
         : `${region.kindleReaderUrl}/notebook?asin=${bookId}`,
       contentHash,
     });
-  });
+  }
 
   return annotations;
 }

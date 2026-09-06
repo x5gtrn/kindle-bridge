@@ -23,16 +23,69 @@ class FakeVault {
     return "TestVault";
   }
 
-  getMarkdownFiles(): TFile[] {
-    return [...this.files.values()].map((f) => ({ path: f.path }) as TFile);
+  getAbstractFileByPath(path: string) {
+    const file = this.files.get(path);
+    if (file) {
+      return { path: file.path, extension: "md" };
+    }
+    if (this.folderExists(path)) {
+      return { path, children: this.directChildren(path) };
+    }
+    return null;
   }
 
-  getAbstractFileByPath(path: string) {
+  private folderExists(path: string): boolean {
     if (this.folders.has(path)) {
-      return { path, children: [] };
+      return true;
     }
-    const file = this.files.get(path);
-    return file ? { path: file.path, children: undefined } : null;
+    const prefix = `${path}/`;
+    for (const filePath of this.files.keys()) {
+      if (filePath.startsWith(prefix)) {
+        return true;
+      }
+    }
+    for (const folder of this.folders) {
+      if (folder.startsWith(prefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private directChildren(folderPath: string): Array<{
+    path: string;
+    extension?: string;
+    children?: unknown[];
+  }> {
+    const prefix = `${folderPath}/`;
+    const childFolders = new Set<string>();
+    const children: Array<{ path: string; extension?: string; children?: unknown[] }> = [];
+
+    for (const file of this.files.values()) {
+      if (!file.path.startsWith(prefix)) {
+        continue;
+      }
+      const rest = file.path.slice(prefix.length);
+      const slash = rest.indexOf("/");
+      if (slash === -1) {
+        children.push({ path: file.path, extension: "md" });
+      } else {
+        childFolders.add(`${prefix}${rest.slice(0, slash)}`);
+      }
+    }
+    for (const folder of this.folders) {
+      if (!folder.startsWith(prefix)) {
+        continue;
+      }
+      const rest = folder.slice(prefix.length);
+      if (rest.length > 0 && !rest.includes("/")) {
+        childFolders.add(folder);
+      }
+    }
+    for (const childFolder of childFolders) {
+      children.push({ path: childFolder, children: this.directChildren(childFolder) });
+    }
+    return children;
   }
 
   create(path: string, data: string): Promise<TFile> {
@@ -435,6 +488,29 @@ describe("BookNoteRepository", () => {
     it("returns the last_synced_at frontmatter value from an existing note", async () => {
       const repo = buildRepository(vault);
       await repo.upsert(book, [annotation], renderOptions);
+
+      expect(repo.getLastSyncedAt(book.id)).toBe(renderOptions.syncedAt);
+    });
+
+    it("ignores a note outside the output folder even if it has kindle_book_id", () => {
+      vault.files.set("Somewhere Else/Other.md", {
+        path: "Somewhere Else/Other.md",
+        content: `# Other\n\n${GENERATED_BLOCK_START}\n\n${GENERATED_BLOCK_END}\n`,
+        frontmatter: { kindle_book_id: book.id, last_synced_at: "2026-01-01T00:00:00.000Z" },
+      });
+      const repo = buildRepository(vault);
+
+      expect(repo.getLastSyncedAt(book.id)).toBeUndefined();
+    });
+
+    it("finds a managed note in a subfolder of the output folder", () => {
+      const nestedPath = "Highlight and Note/Books/Series/Book Title.md";
+      vault.files.set(nestedPath, {
+        path: nestedPath,
+        content: `# Book Title\n\n${GENERATED_BLOCK_START}\n\n${GENERATED_BLOCK_END}\n`,
+        frontmatter: { kindle_book_id: book.id, last_synced_at: renderOptions.syncedAt },
+      });
+      const repo = buildRepository(vault);
 
       expect(repo.getLastSyncedAt(book.id)).toBe(renderOptions.syncedAt);
     });

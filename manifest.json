@@ -1,7 +1,7 @@
 {
   "id": "kindle-bridge",
   "name": "Kindle Bridge",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "1.4.4",
   "description": "Sync Kindle highlights and notes from Amazon into per-book Markdown notes in your vault.",
   "author": "Daisuke Masuda",
