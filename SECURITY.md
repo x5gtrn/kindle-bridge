@@ -32,7 +32,7 @@ Given how Kindle Bridge works (see [README.md § Authentication](README.md#authe
 - Injection vulnerabilities (e.g. command injection in the browser-launch path, unsafe HTML/DOM construction in the settings UI or modals).
 - Any network destination other than Amazon's own domains and the plugin's local Chrome DevTools Protocol connection.
 - Path traversal or unsafe file overwrite in note generation.
-- Dependency vulnerabilities in `cheerio` (the plugin's only runtime dependency) that are actually reachable through Kindle Bridge's usage of it.
+- Dependency vulnerabilities in bundled runtime code that are actually reachable through Kindle Bridge's usage of it. Kindle Bridge has no npm production dependencies; Amazon HTML is parsed with the runtime `DOMParser`.
 
 Please still report other bugs (crashes, incorrect parsing, etc.) as regular public issues — this policy is specifically for vulnerabilities with security or privacy impact.
 

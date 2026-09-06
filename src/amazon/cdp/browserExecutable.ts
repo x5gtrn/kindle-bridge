@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import { platform } from "node:os";
 import { join } from "node:path";
 
 /**
@@ -73,13 +71,4 @@ export function candidatesForPlatform(platformId: string): string[] {
     default:
       return linuxCandidates();
   }
-}
-
-export function findBrowserExecutable(): string {
-  for (const candidate of candidatesForPlatform(platform())) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  throw new BrowserNotFoundError();
 }

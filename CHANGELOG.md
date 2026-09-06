@@ -4,6 +4,17 @@ All notable changes to Kindle Bridge are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-09-06
+
+### Fixed
+
+- Use `window.setTimeout()` / `window.clearTimeout()` so timer calls are popout-window compatible.
+- Implement `PluginSettingTab.getSettingDefinitions()` so settings appear in Obsidian 1.13+ settings search, while keeping `display()` as the fallback for older app versions (`minAppVersion` stays `1.4.4`).
+- Locate existing book notes by walking the configured output folder instead of `vault.getMarkdownFiles()`, so the plugin no longer enumerates every Markdown file in the vault.
+- Stop importing Node's `fs` module in production code (browser discovery now tries each candidate via `spawn`; stale Chrome singleton locks are cleared via `readlink`/`rm`). Launching the separate Chrome/Edge/Chromium/Brave process still uses `child_process`, which is required for Amazon sign-in.
+- Encode the WebSocket opening-handshake key without Node's runtime base64 encode API.
+- Replace cheerio with the runtime `DOMParser` for Amazon HTML parsing, removing a large bundled dependency and its runtime base64 helpers.
+
 ## [1.0.1] - 2026-08-10
 
 ### Fixed
@@ -42,5 +53,6 @@ Initial public release.
 - Amazon credentials (password, one-time code, cookies) are never read, stored, or logged by the plugin — see [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md).
 - No analytics, telemetry, or developer-owned server — the only network destination is Amazon and a local Chrome DevTools Protocol connection.
 
+[1.0.2]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.2
 [1.0.1]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.1
 [1.0.0]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.0

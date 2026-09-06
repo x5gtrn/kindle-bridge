@@ -161,9 +161,8 @@ export class BookNoteRepository implements BookNoteWriter {
     if (!existing) {
       return undefined;
     }
-    const value: unknown = this.metadataCache.getFileCache(existing)?.frontmatter?.[
-      FRONTMATTER_LAST_SYNCED_AT_KEY
-    ];
+    const value: unknown =
+      this.metadataCache.getFileCache(existing)?.frontmatter?.[FRONTMATTER_LAST_SYNCED_AT_KEY];
     return typeof value === "string" ? value : undefined;
   }
 
@@ -173,21 +172,37 @@ export class BookNoteRepository implements BookNoteWriter {
 
   /** Every Markdown file under the output folder with a `kindle_book_id`
    * frontmatter value - the shared enumeration `findExistingNote()` and
-   * `flagRemovedBooks()` both build on. */
+   * `flagRemovedBooks()` both build on. Walks only that folder (and its
+   * subfolders) rather than `vault.getMarkdownFiles()`, which the
+   * release scanner reports as vault-wide enumeration. */
   private findAllManagedNotes(): Array<{ file: TFile; bookId: string }> {
-    const folderPrefix = `${joinVaultPath(this.outputFolder)}/`;
+    const folder = this.vault.getAbstractFileByPath(joinVaultPath(this.outputFolder));
+    if (!isFolder(folder)) {
+      return [];
+    }
     const notes: Array<{ file: TFile; bookId: string }> = [];
-    for (const file of this.vault.getMarkdownFiles()) {
-      if (!file.path.startsWith(folderPrefix)) {
+    this.collectManagedNotes(folder, notes);
+    return notes;
+  }
+
+  private collectManagedNotes(
+    folder: TFolder,
+    notes: Array<{ file: TFile; bookId: string }>,
+  ): void {
+    for (const child of folder.children) {
+      if (isFolder(child)) {
+        this.collectManagedNotes(child, notes);
         continue;
       }
-      const cache = this.metadataCache.getFileCache(file);
+      if (!isMarkdownFile(child)) {
+        continue;
+      }
+      const cache = this.metadataCache.getFileCache(child);
       const rawBookId: unknown = cache?.frontmatter?.[FRONTMATTER_BOOK_ID_KEY];
       if (typeof rawBookId === "string" && rawBookId.length > 0) {
-        notes.push({ file, bookId: rawBookId });
+        notes.push({ file: child, bookId: rawBookId });
       }
     }
-    return notes;
   }
 
   private async createNote(
@@ -226,10 +241,7 @@ export class BookNoteRepository implements BookNoteWriter {
   /** Shared by createNote()/updateNote(): merges the plugin-owned keys
    * and deletes the legacy `memo_count` key, if present, so a renamed
    * note doesn't end up with both `memo_count` and `note_count`. */
-  private async applyFrontmatter(
-    file: TFile,
-    frontmatter: Record<string, unknown>,
-  ): Promise<void> {
+  private async applyFrontmatter(file: TFile, frontmatter: Record<string, unknown>): Promise<void> {
     await this.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
       delete fm[LEGACY_MEMO_COUNT_FRONTMATTER_KEY];
       Object.assign(fm, frontmatter);
@@ -277,6 +289,10 @@ export class BookNoteRepository implements BookNoteWriter {
  */
 function isFolder(node: TAbstractFile | null): node is TFolder {
   return node !== null && Array.isArray((node as Partial<TFolder>).children);
+}
+
+function isMarkdownFile(node: TAbstractFile): node is TFile {
+  return !isFolder(node) && node.path.endsWith(".md");
 }
 
 function replaceGeneratedBlock(data: string, path: string, generatedBlockBody: string): string {

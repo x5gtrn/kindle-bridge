@@ -5,7 +5,7 @@ import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default tseslint.config(
   {
-    ignores: ["main.js", "node_modules/**", "coverage/**", "dist/**"],
+    ignores: ["main.js", "node_modules/**", "coverage/**", "dist/**", "src/tests/setup.ts"],
   },
   tseslint.configs.recommendedTypeChecked,
   ...obsidianmd.configs.recommended,
@@ -42,27 +42,6 @@ export default tseslint.config(
           ignoreRegex: ["^YYYY-MM-DD$", "^Highlight and Note/Books$"],
         },
       ],
-    },
-  },
-  {
-    // These files' setTimeout/clearTimeout calls gate promises around
-    // external child-process/CDP events (browser launch, sign-in
-    // timeout, generic sleep helpers) - none are attached to any DOM
-    // element or window-scoped UI state, so Obsidian's popout-window
-    // guidance doesn't apply to them. Switching to window.setTimeout
-    // would also break their unit tests, which run under Vitest's
-    // "node" environment (see vitest.config.mts), where `window` is
-    // not defined.
-    files: [
-      "src/amazon/AmazonAuthService.ts",
-      "src/amazon/KindleReaderClient.ts",
-      "src/amazon/cdp/CdpBrowser.ts",
-      "src/utils/retry.ts",
-      "src/utils/retry.spec.ts",
-      "src/utils/timeout.ts",
-    ],
-    rules: {
-      "obsidianmd/prefer-window-timers": "off",
     },
   },
   eslintConfigPrettier,

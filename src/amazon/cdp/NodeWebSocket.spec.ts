@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createServer, type Server, type Socket } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { NodeWebSocket } from "./NodeWebSocket";
+import { encodeRfc4648, NodeWebSocket } from "./NodeWebSocket";
 
 const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -158,7 +158,10 @@ describe("NodeWebSocket", () => {
     await waitForEvent(socket, "open");
 
     const messageEvent = waitForEvent(socket, "message");
-    const payload = JSON.stringify({ method: "Page.frameNavigated", params: { url: "https://example.com" } });
+    const payload = JSON.stringify({
+      method: "Page.frameNavigated",
+      params: { url: "https://example.com" },
+    });
     serverSocket?.write(encodeServerFrame(0x1, Buffer.from(payload, "utf8")));
 
     const event = await messageEvent;
@@ -205,5 +208,21 @@ describe("NodeWebSocket", () => {
 
     const pong = await pongReceived;
     expect(pong.payload.toString("utf8")).toBe("ping-payload");
+  });
+});
+
+describe("encodeRfc4648", () => {
+  it("matches Node's RFC 4648 encoding, including padding", () => {
+    const cases = ["", "f", "fo", "foo", "foob", "fooba", "foobar"];
+    for (const input of cases) {
+      expect(encodeRfc4648(Buffer.from(input, "utf8"))).toBe(
+        Buffer.from(input, "utf8").toString("base64"),
+      );
+    }
+  });
+
+  it("encodes the 16-byte WebSocket key length without throwing", () => {
+    const key = Buffer.alloc(16, 0xab);
+    expect(encodeRfc4648(key)).toHaveLength(24);
   });
 });

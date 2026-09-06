@@ -146,7 +146,10 @@ export class CdpKindleReaderClient implements KindleReaderClient {
       }
 
       const html = await page.getHtml();
-      this.logger.debug("Fetched Amazon page", { origin: safeUrlOrigin(finalUrl), bytes: html.length });
+      this.logger.debug("Fetched Amazon page", {
+        origin: safeUrlOrigin(finalUrl),
+        bytes: html.length,
+      });
       return html;
     } catch (error) {
       if (error instanceof HttpTooManyRequestsError || error instanceof AmazonSessionExpiredError) {
@@ -162,5 +165,5 @@ export class CdpKindleReaderClient implements KindleReaderClient {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

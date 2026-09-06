@@ -1,8 +1,8 @@
-import * as cheerio from "cheerio";
 import type { KindleBook } from "../models/KindleBook";
 import { normalizeForHash, sha256Hex } from "../utils/hash";
 import { upsizeCoverImageUrl } from "./amazonImageUrl";
 import type { AmazonRegion } from "./AmazonRegion";
+import { elementAttr, elementText, parseHtmlDocument } from "./htmlDocument";
 import { KindleParseError } from "./KindleParseError";
 import { parseAmazonDate } from "./parseAmazonDate";
 
@@ -22,9 +22,9 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
     throw new KindleParseError("received empty notebook page HTML");
   }
 
-  const $ = cheerio.load(html);
+  const document = parseHtmlDocument(html);
 
-  if ($(LIBRARY_CONTAINER_SELECTOR).length === 0) {
+  if (!document.querySelector(LIBRARY_CONTAINER_SELECTOR)) {
     throw new KindleParseError(
       `could not find the notebook library container ("${LIBRARY_CONTAINER_SELECTOR}") for region "${region.id}"`,
     );
@@ -32,13 +32,12 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
 
   const books: KindleBook[] = [];
 
-  $(BOOK_SELECTOR).each((_index, element) => {
-    const bookEl = $(element);
-    const asin = bookEl.attr("data-asin") ?? bookEl.attr("id");
-    const title = bookEl.find("h2.kp-notebook-searchable").first().text().trim();
+  for (const bookEl of Array.from(document.querySelectorAll(BOOK_SELECTOR))) {
+    const asin = elementAttr(bookEl, "data-asin") ?? elementAttr(bookEl, "id");
+    const title = elementText(bookEl.querySelector("h2.kp-notebook-searchable"));
 
     if (!title) {
-      return;
+      continue;
     }
 
     // Confirmed against a real, live account (2026-08-10, see
@@ -48,14 +47,14 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
     // book's authors empty. "p.kp-notebook-searchable" (a compound
     // selector, no space) is the same pattern the title selector above
     // already correctly used.
-    const authorRaw = bookEl.find("p.kp-notebook-searchable").first().text().trim();
+    const authorRaw = elementText(bookEl.querySelector("p.kp-notebook-searchable"));
     const author = authorRaw.replace(AUTHOR_PREFIX_PATTERN, "").trim();
 
-    const coverImageUrl = bookEl.find("img.kp-notebook-cover-image").attr("src");
+    const coverImageUrl = elementAttr(bookEl.querySelector("img.kp-notebook-cover-image"), "src");
 
     const annotatedDateSelector = asin ? `#kp-notebook-annotated-date-${asin}` : undefined;
     const annotatedDateRaw = annotatedDateSelector
-      ? bookEl.find(annotatedDateSelector).attr("value")
+      ? elementAttr(bookEl.querySelector(annotatedDateSelector), "value")
       : undefined;
     const lastAnnotatedAt = parseAmazonDate(annotatedDateRaw, region);
 
@@ -70,7 +69,7 @@ export function parseBookList(html: string, region: AmazonRegion): KindleBook[] 
       lastAnnotatedAt,
       region: region.id,
     });
-  });
+  }
 
   return books;
 }

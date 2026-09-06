@@ -16,14 +16,14 @@ export class TimeoutError extends Error {
 
 export function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new TimeoutError(message)), ms);
+    const timer = window.setTimeout(() => reject(new TimeoutError(message)), ms);
     promise.then(
       (value) => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         resolve(value);
       },
       (error: unknown) => {
-        clearTimeout(timer);
+        window.clearTimeout(timer);
         reject(error instanceof Error ? error : new Error(String(error)));
       },
     );

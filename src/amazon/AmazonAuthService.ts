@@ -57,7 +57,7 @@ export class CdpAmazonAuthService implements AmazonAuthService {
           return;
         }
         settled = true;
-        clearTimeout(timeoutHandle);
+        window.clearTimeout(timeoutHandle);
         if (this.activeBrowser === browser) {
           this.activeBrowser = undefined;
         }
@@ -65,7 +65,7 @@ export class CdpAmazonAuthService implements AmazonAuthService {
         resolve(result);
       };
 
-      const timeoutHandle = setTimeout(() => finish("timeout"), SIGN_IN_TIMEOUT_MS);
+      const timeoutHandle = window.setTimeout(() => finish("timeout"), SIGN_IN_TIMEOUT_MS);
       browser.onExit(() => finish("cancelled"));
 
       browser
