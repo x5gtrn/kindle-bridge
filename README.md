@@ -204,6 +204,17 @@ Kindle Bridge does not collect analytics or telemetry, and does not send your da
 - Log messages are passed through a shared logger that masks object keys matching password/cookie/session/token/otp/auth/secret/credential before they reach the console, at every log level.
 - Full details: [SECURITY.md](SECURITY.md).
 
+### Why the scorecard shows a "Shell Execution" warning
+
+Kindle Bridge's [community directory scorecard](https://community.obsidian.md/plugins/kindle-bridge) carries a **Shell Execution** warning, because the plugin uses Node's `child_process` module. That is accurate, and it is unavoidable: signing in to Amazon means driving a real, separate Chrome/Edge/Chromium/Brave process, and starting one requires `child_process`. The same warning appears on every plugin that runs an external program (Obsidian Git, for example, for running `git`).
+
+What the plugin actually runs is a fixed, short list — see [SECURITY.md § Process execution surface](SECURITY.md#process-execution-surface) for the exact call sites and the invariants a test enforces on them:
+
+- the browser you already have installed, from a hard-coded list of standard install paths;
+- `readlink`, `rm` and `ps`, with fixed arguments, only to recover from a stale Chrome profile lock left behind by a crashed browser.
+
+No shell is ever involved (`shell: true` is never used, and neither is `exec()`), no command line is ever built from your settings, note contents, or anything else you type, and nothing is ever downloaded and run.
+
 ## Data Storage
 
 - **Markdown files**: one note per book, written to your configured output folder via Obsidian's Vault API.

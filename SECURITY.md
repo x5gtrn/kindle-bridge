@@ -40,6 +40,26 @@ Please still report other bugs (crashes, incorrect parsing, etc.) as regular pub
 
 Because Kindle Bridge never itself handles your Amazon password, one-time code, or cookies (they stay entirely within the separate browser process it launches — see [README.md § Authentication](README.md#authentication)), most classic credential-handling vulnerabilities don't apply to the plugin's own code. If you find a way for the plugin to obtain, log, or leak any of that data, please treat it as a high-severity report and use private reporting if available.
 
+## Process execution surface
+
+Kindle Bridge starts external processes. This is what the community directory scorecard's **Shell Execution** warning refers to, and this section documents the whole of it. Every call lives in `src/amazon/cdp/CdpBrowser.ts`; `src/amazon/cdp/processExecutionSurface.spec.ts` fails the build if any of the invariants below stop holding.
+
+| What is executed | Arguments | Why |
+|---|---|---|
+| A Chrome/Edge/Chromium/Brave executable | `--user-data-dir=<plugin's own profile dir>`, `--remote-debugging-port=0`, `--no-first-run`, `--no-default-browser-check`, optionally `--headless=new`, `about:blank` | Amazon sign-in and page fetches run in a real browser process, driven over the Chrome DevTools Protocol. The executable is picked from a hard-coded list of standard install paths per OS (`src/amazon/cdp/browserExecutable.ts`); a browser is never downloaded, installed, or updated by this plugin. |
+| `readlink` | The path of `SingletonLock` inside the plugin's own browser profile directory | Chrome refuses to start against a profile whose `SingletonLock` symlink is still present. Reading it yields the pid that owns the lock. |
+| `ps` | `-p <pid> -o comm=` | Before deciding a lock is stale, confirm the pid it names isn't a live browser (pids get reused). If it can't be ruled out as a browser, the lock is left alone and Chrome's own error is allowed to surface. |
+| `rm` | `-f -- <path>`, for the three `Singleton*` files inside the plugin's own browser profile directory | Clear a confirmed-stale lock so sign-in can proceed. Without this, one crashed browser process makes every later sign-in fail until the user deletes the files by hand. |
+
+The invariants:
+
+- `child_process` is imported in exactly one file, and only `spawn` and `execFileSync` are used. `exec`, `execSync`, `spawnSync`, `execFile` and `fork` are not used anywhere.
+- `shell: true` is never passed, so no argument is ever interpreted by a shell.
+- Every argument is either a compile-time constant, a path derived from the plugin's own profile directory, or a pid this plugin read from its own lock file. Nothing you type — settings, folder names, note contents, book titles — reaches an argument list.
+- The three utility commands are POSIX-only recovery paths guarded by an early `process.platform === "win32"` return, and they only ever touch files inside `<vault>/.obsidian/plugins/kindle-bridge/browser-profile/`.
+
+`readlink`/`ps`/`rm` are used in place of Node's `fs` module deliberately: Obsidian's review flags a production `fs` import as filesystem access outside the Vault API, and `child_process` is already required for the browser launch. All vault file I/O goes through Obsidian's Vault/FileManager APIs, never through either of these.
+
 ## Scope
 
 This policy covers the Kindle Bridge plugin source code in this repository. It does not cover:
