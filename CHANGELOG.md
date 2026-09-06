@@ -4,6 +4,17 @@ All notable changes to Kindle Bridge are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Documentation
+
+- Document the plugin's complete external-process surface in [SECURITY.md](SECURITY.md) and explain the community directory scorecard's "Shell Execution" warning in the README: which executables can run, with which arguments, and why `child_process` is unavoidable for a plugin that drives a real browser.
+- Record that the scorecard's "Malware scan not available" disclosure is platform-wide rather than specific to this plugin, so it isn't re-investigated.
+
+### Added
+
+- `processExecutionSurface.spec.ts`, which fails the build if the external-process surface grows: `child_process` outside its one file, a command-line-taking API (`exec`, `execSync`, `spawnSync`, `fork`), `shell: true`, or a command outside the documented set.
+
 ## [1.1.0] - 2026-09-06
 
 ### Fixed
