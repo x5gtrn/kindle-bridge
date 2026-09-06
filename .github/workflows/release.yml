@@ -29,6 +29,22 @@ jobs:
 
       - run: npm run build
 
+      # Obsidian requires the released manifest.json "version" to match
+      # the release tag exactly. Nothing else in the pipeline checks the
+      # tag against the manifest (validate-release only cross-checks the
+      # in-repo files against each other), so guard it here before any
+      # artifact is published. See #7.
+      - name: Verify the tag matches manifest.json version
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          manifest_version="$(node -p "require('./manifest.json').version")"
+          if [ "$tag" != "$manifest_version" ]; then
+            echo "Tag \"$tag\" does not match manifest.json version \"$manifest_version\"." >&2
+            exit 1
+          fi
+
+      - run: npm run validate-release
+
       # Recommended by Obsidian's plugin release docs: a signed build
       # provenance attestation for the release assets. No styles.css
       # is listed since this plugin doesn't ship one - see README.md.
