@@ -4,7 +4,7 @@ All notable changes to Kindle Bridge are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.0.2] - 2026-09-06
+## [1.1.0] - 2026-09-06
 
 ### Fixed
 
@@ -53,6 +53,6 @@ Initial public release.
 - Amazon credentials (password, one-time code, cookies) are never read, stored, or logged by the plugin — see [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md).
 - No analytics, telemetry, or developer-owned server — the only network destination is Amazon and a local Chrome DevTools Protocol connection.
 
-[1.0.2]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.2
+[1.1.0]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.1.0
 [1.0.1]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.1
 [1.0.0]: https://github.com/x5gtrn/kindle-bridge/releases/tag/1.0.0
